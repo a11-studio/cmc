@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
+import { fetchPersistedCycle } from "@/lib/agent/durable";
 import {
   getAgentStore,
   getMomentumAlphaStore,
@@ -136,7 +137,8 @@ export async function getLiveOrSampleBook(id: string) {
 
 export async function getLiveOrSampleDecision(id: string): Promise<DecisionRecord | undefined> {
   for (const agent of listLiveAgents()) {
-    const cycle = (await getAgentStore(agent.id)).findCycle(id);
+    const cycle =
+      (await getAgentStore(agent.id)).findCycle(id) ?? (await fetchPersistedCycle(agent.id, id));
 
     if (cycle) {
       return cycleToDecisionRecord(cycle) ?? undefined;

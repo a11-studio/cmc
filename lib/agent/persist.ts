@@ -343,24 +343,44 @@ export async function persistArenaState(
 
   await writer.upsert("agents", [rows.agent], "id");
 
-  if (rows.snapshots.length > 0) {
-    await writer.upsert("market_snapshots", rows.snapshots, "cycle_id");
-  }
+  const latest = state.cycles.at(-1);
 
-  if (rows.cycles.length > 0) {
-    await writer.upsert("agent_cycles", rows.cycles, "agent_id,cycle_id");
-  }
+  if (latest) {
+    const cycleId = latest.cycleId;
 
-  if (rows.decisions.length > 0) {
-    await writer.upsert("decisions", rows.decisions, "id");
-  }
+    const cycleRows = rows.cycles.filter((row) => row.cycle_id === cycleId);
+    if (cycleRows.length > 0) {
+      await writer.upsert("agent_cycles", cycleRows, "agent_id,cycle_id");
+    }
 
-  if (rows.riskChecks.length > 0) {
-    await writer.upsert("risk_checks", rows.riskChecks, "decision_id");
-  }
+    const snapshotRows = rows.snapshots.filter((row) => row.cycle_id === cycleId);
+    if (snapshotRows.length > 0) {
+      await writer.upsert("market_snapshots", snapshotRows, "cycle_id");
+    }
 
-  if (rows.trades.length > 0) {
-    await writer.upsert("trades", rows.trades, "id");
+    const decisionRows = rows.decisions.filter((row) => row.cycle_id === cycleId);
+    if (decisionRows.length > 0) {
+      await writer.upsert("decisions", decisionRows, "id");
+    }
+
+    const riskRows = rows.riskChecks.filter((row) => row.decision_id === cycleId);
+    if (riskRows.length > 0) {
+      await writer.upsert("risk_checks", riskRows, "decision_id");
+    }
+
+    const tradeRows = rows.trades.filter((row) => row.decision_id === cycleId);
+    if (tradeRows.length > 0) {
+      await writer.upsert("trades", tradeRows, "id");
+    }
+
+    const activityRows = rows.activity.filter((row) => row.cycle_id === cycleId);
+    if (activityRows.length > 0) {
+      await writer.upsert("activity_events", activityRows, "id");
+    }
+
+    if (rows.portfolio && rows.portfolio.cycle_id === cycleId) {
+      await writer.upsert("portfolio_snapshots", [rows.portfolio], "agent_id,cycle_id");
+    }
   }
 
   await writer.deleteEq("positions", "agent_id", state.agentId);
@@ -369,11 +389,4 @@ export async function persistArenaState(
     await writer.upsert("positions", rows.positions, "agent_id,symbol");
   }
 
-  if (rows.portfolio) {
-    await writer.upsert("portfolio_snapshots", [rows.portfolio], "agent_id,cycle_id");
-  }
-
-  if (rows.activity.length > 0) {
-    await writer.upsert("activity_events", rows.activity, "id");
-  }
 }

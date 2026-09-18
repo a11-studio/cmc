@@ -213,4 +213,28 @@ describe("Momentum Alpha persistence mapping", () => {
     expect(hydrated.getAgentStatus()).toBe("PAUSED");
     expect(rows.agent.status).toBe("PAUSED");
   });
+
+  it("persists only the latest cycle row to Supabase", async () => {
+    const store = createInMemoryAgentStore();
+    const deps = createDeps({ store, generateTradeDecision: vi.fn(async () => decision({ action: "HOLD" })) });
+
+    await runAgentCycle({ agent: MOMENTUM_ALPHA_AGENT, cycleId: "cycle-a", deps });
+    await runAgentCycle({ agent: MOMENTUM_ALPHA_AGENT, cycleId: "cycle-b", deps });
+
+    const writes: { table: string; count: number }[] = [];
+    const writer: ArenaWriter = {
+      async upsert(table, rows) {
+        writes.push({ table, count: rows.length });
+      },
+      async deleteEq() {},
+    };
+
+    await persistArenaState(writer, snapshotPersistedState(store, NOW), NOW);
+
+    expect(writes.find((write) => write.table === "agent_cycles")).toEqual({
+      table: "agent_cycles",
+      count: 1,
+    });
+    expect(writes.find((write) => write.table === "decisions")?.count).toBe(1);
+  });
 });

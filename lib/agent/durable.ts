@@ -5,6 +5,7 @@ import {
   createStoreFromPersistedState,
   persistArenaState,
   persistedStateFromRows,
+  reviveCycle,
   snapshotPersistedState,
   type ArenaWriter,
   type PersistedAgentRow,
@@ -17,7 +18,8 @@ import { isSupabasePersistenceConfigured } from "@/lib/env.server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const UNIQUE_VIOLATION = "23505";
+/** Max cycle rows loaded per agent on hydrate (keeps PostgREST egress bounded). */
+export const HYDRATE_CYCLE_LIMIT = 160;
 
 function throwIfError(error: { message: string } | null, action: string): void {
   if (error) {
@@ -47,6 +49,32 @@ export function createSupabaseArenaWriter(client: SupabaseClient): ArenaWriter {
   };
 }
 
+export async function fetchPersistedCycle(
+  agentId: string,
+  cycleId: string
+): Promise<AgentCycleResult | null> {
+  if (!isSupabasePersistenceConfigured()) {
+    return null;
+  }
+
+  const client = createSupabaseAdminClient();
+
+  if (!client) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from("agent_cycles")
+    .select("payload")
+    .eq("agent_id", agentId)
+    .eq("cycle_id", cycleId)
+    .maybeSingle();
+
+  throwIfError(error, "fetch cycle");
+
+  return reviveCycle((data as { payload: unknown } | null)?.payload);
+}
+
 export async function hydrateAgentStore(agentId: string): Promise<AgentCycleStore> {
   if (!isSupabasePersistenceConfigured()) {
     return emptyStore(agentId);
@@ -68,15 +96,19 @@ export async function hydrateAgentStore(agentId: string): Promise<AgentCycleStor
       .from("agent_cycles")
       .select("payload, status")
       .eq("agent_id", agentId)
-      .order("started_at", { ascending: true }),
+      .neq("status", "CLAIMED")
+      .order("started_at", { ascending: false })
+      .limit(HYDRATE_CYCLE_LIMIT),
   ]);
 
   throwIfError(agentResult.error, "hydrate agent");
   throwIfError(cyclesResult.error, "hydrate cycles");
 
+  const cycleRows = [...((cyclesResult.data as PersistedCycleRow[] | null) ?? [])].reverse();
+
   const state = persistedStateFromRows(
     (agentResult.data as PersistedAgentRow | null) ?? null,
-    (cyclesResult.data as PersistedCycleRow[] | null) ?? [],
+    cycleRows,
     new Date(),
     agentId
   );
@@ -113,20 +145,23 @@ export async function claimAgentCycle(agentId: string, cycleId: string, now = ne
     return true;
   }
 
-  const { error } = await client.from("agent_cycles").insert({
-    agent_id: agentId,
-    cycle_id: cycleId,
-    started_at: now.toISOString(),
-    status: "CLAIMED",
-    payload: {},
-  });
-
-  if (error?.code === UNIQUE_VIOLATION) {
-    return false;
-  }
+  const { data, error } = await client
+    .from("agent_cycles")
+    .upsert(
+      {
+        agent_id: agentId,
+        cycle_id: cycleId,
+        started_at: now.toISOString(),
+        status: "CLAIMED",
+        payload: {},
+      },
+      { onConflict: "agent_id,cycle_id", ignoreDuplicates: true }
+    )
+    .select("cycle_id");
 
   throwIfError(error, "claim cycle");
-  return true;
+
+  return (data?.length ?? 0) > 0;
 }
 
 export async function hydrateMomentumAlphaStore(): Promise<AgentCycleStore> {
