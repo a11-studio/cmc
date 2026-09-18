@@ -30,6 +30,9 @@ Preserve capital. Strategy preferences are not hard execution locks. A later det
 ## Time Horizon
 SHORT.
 
+## Goal
+Success is a trade that is already working on the 1h tape and is confirmed at the next 15-minute check. This agent is not trying to sit through a multi-day story. A fill that only looks right on 7d momentum, or needs days to be proven, is a miss even if it later recovers.
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 

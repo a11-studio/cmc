@@ -3,6 +3,10 @@
     {
       "path": "/api/agents/momentum-alpha/cycle",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/agents/richard-dennis/cycle",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

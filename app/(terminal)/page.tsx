@@ -8,7 +8,7 @@ export default async function ArenaPage() {
 
   return (
     <ArenaDashboard
-      agents={dashboard.agents}
+      books={dashboard.books}
       roster={dashboard.roster}
       live={dashboard.live}
       summary={dashboard.summary}

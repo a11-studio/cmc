@@ -35,6 +35,9 @@ Cut losing trades. Allow winning trends room to develop. Size is a strategy pref
 ## Time Horizon
 MEDIUM / LONG. Prefer MEDIUM when evidence is mixed, LONG only when available multi-period trend is clear.
 
+## Goal
+Success is riding a confirmed breakout until the trend fails, measured in days to weeks. The next 15-minute print is not the score. A small adverse move right after entry can still be a good trade if the breakout holds. Getting chopped out of noise is a failed setup, not a reason to chase the next wiggle.
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 

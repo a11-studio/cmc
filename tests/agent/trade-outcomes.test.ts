@@ -109,12 +109,19 @@ describe("scoreTradesAgainstNextCheck", () => {
     ]);
   });
 
-  it("does not score a fill until a later snapshot exists", () => {
+  it("keeps a fill pending until a later snapshot exists", () => {
     expect(
       scoreTradesAgainstNextCheck(
         [trade({ cycleId: "c1" })],
         [cycle("c1", "2026-09-18T08:00:00.000Z", 100)]
       )
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({
+        tradeId: "t1",
+        win: null,
+        checkPrice: null,
+        checkedAt: null,
+      }),
+    ]);
   });
 });

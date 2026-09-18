@@ -3,11 +3,36 @@ import { freezeMarketSnapshot } from "@/lib/agent/snapshot";
 import { createInMemoryAgentStore } from "@/lib/agent/store";
 import type { AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
 import { cycleToActivityEvents } from "@/lib/agent/view";
+import { findAgentDefinition } from "@/lib/agents/registry";
 import { createPaperAccount } from "@/lib/paper/portfolio";
 import type { PaperAccount } from "@/lib/paper/types";
 import type { AgentRiskStatus } from "@/lib/risk/types";
 
 export const MOMENTUM_ALPHA_DESCRIPTION = "Follows short-term trend while respecting position caps";
+
+function persistedAgentIdentity(agentId: string) {
+  const definition = findAgentDefinition(agentId);
+
+  if (definition) {
+    return {
+      id: definition.id,
+      name: definition.displayName,
+      description: definition.description,
+      strategy: definition.strategyName,
+      riskProfile: definition.riskProfile,
+      initialCapital: definition.initialCapital,
+    };
+  }
+
+  return {
+    id: MOMENTUM_ALPHA_AGENT.id,
+    name: MOMENTUM_ALPHA_AGENT.name,
+    description: MOMENTUM_ALPHA_DESCRIPTION,
+    strategy: MOMENTUM_ALPHA_AGENT.strategy,
+    riskProfile: "medium" as const,
+    initialCapital: MOMENTUM_ALPHA_AGENT.initialCapital,
+  };
+}
 
 export type PersistedArenaState = {
   agentId: string;
@@ -114,7 +139,11 @@ export function reviveCycle(raw: unknown): AgentCycleResult | null {
   return cycle;
 }
 
-export function snapshotPersistedState(store: AgentCycleStore, now = new Date()): PersistedArenaState {
+export function snapshotPersistedState(
+  store: AgentCycleStore,
+  now = new Date(),
+  agentId = MOMENTUM_ALPHA_AGENT.id
+): PersistedArenaState {
   const account = store.getAccount();
   const cycles = store.listCycles().flatMap((cycle) => {
     const revived = reviveCycle(cycle);
@@ -123,7 +152,7 @@ export function snapshotPersistedState(store: AgentCycleStore, now = new Date())
   const lastEquity = store.getLastEquity();
 
   return {
-    agentId: MOMENTUM_ALPHA_AGENT.id,
+    agentId,
     account,
     status: store.getAgentStatus(),
     dayStartEquity: store.getDayStartEquity(now),
@@ -147,7 +176,8 @@ export function createStoreFromPersistedState(state: PersistedArenaState): Agent
 export function persistedStateFromRows(
   agent: PersistedAgentRow | null,
   cycleRows: PersistedCycleRow[],
-  now = new Date()
+  now = new Date(),
+  agentId = MOMENTUM_ALPHA_AGENT.id
 ): PersistedArenaState | null {
   if (!agent) {
     return null;
@@ -161,7 +191,7 @@ export function persistedStateFromRows(
     .filter((cycle): cycle is AgentCycleResult => cycle != null);
 
   return {
-    agentId: MOMENTUM_ALPHA_AGENT.id,
+    agentId,
     account: unwrapped.account,
     status: isAgentRiskStatus(agent.status) ? agent.status : "ACTIVE",
     dayStartEquity: agent.day_start_equity ?? lastEquity,
@@ -186,16 +216,17 @@ export type ArenaWriteRows = {
 export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): ArenaWriteRows {
   const latest = state.cycles.at(-1);
   const valuation = latest?.valuation;
+  const identity = persistedAgentIdentity(state.agentId);
 
   return {
     agent: {
-      id: MOMENTUM_ALPHA_AGENT.id,
-      name: MOMENTUM_ALPHA_AGENT.name,
-      description: MOMENTUM_ALPHA_DESCRIPTION,
-      strategy: MOMENTUM_ALPHA_AGENT.strategy,
+      id: identity.id,
+      name: identity.name,
+      description: identity.description,
+      strategy: identity.strategy,
       initial_capital: state.account.initialCapital,
       status: state.status,
-      risk_profile: "medium",
+      risk_profile: identity.riskProfile,
       account_payload: wrapAccountPayload(state.account, state.dayKey),
       day_start_equity: state.dayStartEquity,
       last_equity: state.lastEquity,
@@ -203,7 +234,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
       updated_at: now.toISOString(),
     },
     cycles: state.cycles.map((cycle) => ({
-      agent_id: MOMENTUM_ALPHA_AGENT.id,
+      agent_id: identity.id,
       cycle_id: cycle.cycleId,
       started_at: cycle.startedAt,
       completed_at: cycle.completedAt,
@@ -227,7 +258,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
         ? [
             {
               id: cycle.cycleId,
-              agent_id: MOMENTUM_ALPHA_AGENT.id,
+              agent_id: identity.id,
               cycle_id: cycle.cycleId,
               action: cycle.decision.action,
               symbol: cycle.decision.symbol,
@@ -258,7 +289,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
     ),
     trades: state.account.trades.map((trade) => ({
       id: trade.id,
-      agent_id: MOMENTUM_ALPHA_AGENT.id,
+      agent_id: identity.id,
       decision_id: trade.cycleId,
       symbol: trade.symbol,
       side: trade.side,
@@ -269,7 +300,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
       created_at: trade.createdAt,
     })),
     positions: state.account.positions.map((position) => ({
-      agent_id: MOMENTUM_ALPHA_AGENT.id,
+      agent_id: identity.id,
       symbol: position.symbol,
       quantity: position.quantity,
       average_entry_price: position.averageEntryPrice,
@@ -277,7 +308,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
     portfolio:
       valuation && latest
         ? {
-            agent_id: MOMENTUM_ALPHA_AGENT.id,
+            agent_id: identity.id,
             cycle_id: latest.cycleId,
             timestamp: latest.completedAt,
             cash: valuation.portfolio.cash,
@@ -332,7 +363,7 @@ export async function persistArenaState(
     await writer.upsert("trades", rows.trades, "id");
   }
 
-  await writer.deleteEq("positions", "agent_id", MOMENTUM_ALPHA_AGENT.id);
+  await writer.deleteEq("positions", "agent_id", state.agentId);
 
   if (rows.positions.length > 0) {
     await writer.upsert("positions", rows.positions, "agent_id,symbol");

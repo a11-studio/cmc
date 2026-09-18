@@ -28,7 +28,7 @@ export const ARENA_AGENTS: readonly ArenaAgentDefinition[] = [
     riskProfile: "medium",
     preferredAssets: SUPPORTED_SYMBOLS,
     timeHorizon: "MEDIUM / LONG",
-    status: "READY",
+    status: "LIVE",
     initialCapital: INITIAL_CAPITAL,
   },
   {
@@ -113,6 +113,10 @@ export const ARENA_AGENTS: readonly ArenaAgentDefinition[] = [
 
 export function listArenaAgents(): readonly ArenaAgentDefinition[] {
   return ARENA_AGENTS;
+}
+
+export function listLiveAgents(): readonly ArenaAgentDefinition[] {
+  return ARENA_AGENTS.filter((agent) => agent.status === "LIVE");
 }
 
 export function findAgentDefinition(id: string): ArenaAgentDefinition | undefined {

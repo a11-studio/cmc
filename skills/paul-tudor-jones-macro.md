@@ -35,6 +35,9 @@ Risk management takes priority over maximizing exposure. Prefer HOLD over a forc
 ## Time Horizon
 MEDIUM.
 
+## Goal
+Success is being on the right side of a readable regime without a large drawdown. Preserving capital in an unclear tape counts as a win. A profitable fill that required ignoring a hostile or unreadable regime is a miss.
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 

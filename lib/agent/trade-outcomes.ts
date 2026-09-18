@@ -9,10 +9,10 @@ export type TradeCheck = {
   symbol: SupportedSymbol;
   side: Trade["side"];
   fillPrice: number;
-  checkPrice: number;
+  checkPrice: number | null;
   createdAt: string;
-  checkedAt: string;
-  win: boolean;
+  checkedAt: string | null;
+  win: boolean | null;
 };
 
 export function scoreTradeCheck(side: Trade["side"], fillPrice: number, checkPrice: number): boolean | null {
@@ -57,13 +57,18 @@ export function scoreTradesAgainstNextCheck(
     const checkPrice = next ? snapshotPrice(next, trade.symbol) : undefined;
 
     if (!next || checkPrice == null) {
-      return [];
-    }
-
-    const win = scoreTradeCheck(trade.side, trade.price, checkPrice);
-
-    if (win == null) {
-      return [];
+      return [
+        {
+          tradeId: trade.id,
+          symbol: trade.symbol,
+          side: trade.side,
+          fillPrice: trade.price,
+          checkPrice: null,
+          createdAt: trade.createdAt,
+          checkedAt: null,
+          win: null,
+        },
+      ];
     }
 
     return [
@@ -75,7 +80,7 @@ export function scoreTradesAgainstNextCheck(
         checkPrice,
         createdAt: trade.createdAt,
         checkedAt: next.completedAt,
-        win,
+        win: scoreTradeCheck(trade.side, trade.price, checkPrice),
       },
     ];
   });

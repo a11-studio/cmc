@@ -5,7 +5,7 @@ import { CycleResultList } from "@/components/activity/cycle-result-list";
 import { RunCycleButton } from "@/components/agents/run-cycle-button";
 import { Card } from "@/components/ui/card";
 import { PersistenceNotice } from "@/components/shared/persistence-notice";
-import { getArenaPersistenceMode, getMomentumAlphaView } from "@/lib/arena/data";
+import { getArenaPersistenceMode, getLiveAgentViews } from "@/lib/arena/data";
 import { isManualCycleEnabled } from "@/lib/agent/view";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +15,20 @@ export const metadata = {
 };
 
 export default async function ActivityPage() {
-  const live = await getMomentumAlphaView();
+  const books = await getLiveAgentViews();
   const persistenceMode = getArenaPersistenceMode();
+  const cycles = [...books.flatMap((book) => book.cycles)].sort(
+    (left, right) => Date.parse(right.completedAt) - Date.parse(left.completedAt)
+  );
+  const events = [...books.flatMap((book) => book.events)].sort(
+    (left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
+  );
 
   return (
     <div className="space-y-6">
       <PageHeader
         kicker="Activity"
-        title="Elon Musk cycle"
+        title="Live cycles"
         description="ANALYZING → DECISION → RISK CHECK → TRADE EXECUTED or BLOCKED."
         actions={isManualCycleEnabled() ? <RunCycleButton /> : undefined}
       />
@@ -30,11 +36,11 @@ export default async function ActivityPage() {
       <DataSourceNotice source="live" />
       <PersistenceNotice mode={persistenceMode} />
 
-      <CycleResultList cycles={live.cycles} />
+      <CycleResultList cycles={cycles} />
 
-      {live.events.length > 0 ? (
+      {events.length > 0 ? (
         <Card className="px-5 py-2">
-          <ActivityTimeline events={live.events} showAgent />
+          <ActivityTimeline events={events} showAgent />
         </Card>
       ) : (
         <Card className="px-5 py-6">

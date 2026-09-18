@@ -1,116 +1,138 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TickerPhrase } from "@/components/market/asset-icon";
+import { SignedPercent } from "@/components/shared/signed-value";
 import type { TradeCheck } from "@/lib/agent/trade-outcomes";
-import { buildTradeHeatmap, type HeatmapCell } from "@/lib/charts/trade-heatmap";
+import { formatChartTime, formatUsd } from "@/lib/format";
+import {
+  groupTradeChecksByDay,
+  tradeCheckMovePercent,
+  tradeCheckTone,
+  type TradeCheckTone,
+} from "@/lib/charts/trade-heatmap";
 import { cn } from "@/lib/utils";
 
-const WIN = ["#0E2A18", "#14532D", "#15803D", "#22C55E"] as const;
-const LOSS = ["#3F1212", "#7F1D1D", "#B91C1C", "#F87171"] as const;
+const TONE: Record<TradeCheckTone, string> = {
+  win: "#22C55E",
+  loss: "#F87171",
+  pending: "#171717",
+};
 
-function cellStyle(cell: HeatmapCell) {
-  if (cell.tone === "empty" || cell.level === 0) {
-    return { backgroundColor: "#171717" };
+function outcomeLabel(win: boolean | null) {
+  if (win === true) {
+    return "Confirmed";
   }
 
-  if (cell.tone === "mixed") {
-    return { backgroundColor: "#3F3F46" };
+  if (win === false) {
+    return "Against";
   }
 
-  const scale = cell.tone === "win" ? WIN : LOSS;
-  return { backgroundColor: scale[cell.level - 1] };
+  return "Waiting for next 15m check";
 }
 
-function cellTitle(cell: HeatmapCell) {
-  if (cell.future) {
-    return cell.label;
-  }
+function TradeCheckCell({ check }: { check: TradeCheck }) {
+  const [open, setOpen] = useState(false);
+  const tone = tradeCheckTone(check.win);
+  const move = tradeCheckMovePercent(check.fillPrice, check.checkPrice);
 
-  if (cell.wins === 0 && cell.losses === 0) {
-    return `${cell.label}: no scored trades`;
-  }
-
-  const parts = [
-    cell.wins ? `${cell.wins} confirmed` : null,
-    cell.losses ? `${cell.losses} against` : null,
-  ].filter(Boolean);
-
-  return `${cell.label}: ${parts.join(", ")}`;
+  return (
+    <Tooltip open={open} onOpenChange={setOpen} delayDuration={0}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={`${check.side} ${check.symbol} ${outcomeLabel(check.win)}`}
+          className="size-3.5 rounded-[3px] border border-white/5"
+          style={{ backgroundColor: TONE[tone] }}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+        />
+      </TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        sideOffset={8}
+        className="w-[196px] max-w-none flex-col items-start gap-0 border border-white/10 bg-[#101010] px-3 py-2.5 text-left text-foreground"
+      >
+        <p className="text-[11px] text-tertiary">{formatChartTime(check.createdAt)}</p>
+        <p className="mt-1 text-sm font-medium text-foreground">
+          {check.side} <TickerPhrase text={check.symbol} size="xs" />
+        </p>
+        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+          {formatUsd(check.fillPrice)}
+          {check.checkPrice != null ? ` → ${formatUsd(check.checkPrice)}` : ""}
+        </p>
+        {move != null ? <SignedPercent value={move} className="mt-0.5 block text-xs" digits={2} /> : null}
+        <p
+          className={cn(
+            "mt-1 text-[11px]",
+            tone === "win" ? "text-positive" : tone === "loss" ? "text-negative" : "text-tertiary"
+          )}
+        >
+          {outcomeLabel(check.win)}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function TradeHeatmap({
   checks,
-  emptyLabel = "No scored trades yet. Squares fill after the next cycle marks a fill.",
+  emptyLabel = "Squares appear after a fill. Color waits for the next 15-minute check.",
 }: {
   checks: TradeCheck[];
   emptyLabel?: string;
 }) {
-  const heatmap = useMemo(() => buildTradeHeatmap(checks), [checks]);
+  const groups = useMemo(() => groupTradeChecksByDay(checks), [checks]);
+  const confirmed = checks.filter((check) => check.win === true).length;
+  const against = checks.filter((check) => check.win === false).length;
+  const pending = checks.filter((check) => check.win == null).length;
 
   return (
-    <Card>
+    <Card className="overflow-visible">
       <CardHeader className="border-b border-border-subtle">
         <CardTitle className="text-xs font-medium tracking-[0.16em] text-tertiary uppercase">
           Trade checks
         </CardTitle>
         <p className="mt-2 text-sm text-white/45">
-          Next cycle versus fill. Green confirmed the side, red moved against it.
+          One square per fill. Green confirmed the side at the next 15-minute check, red moved against it.
         </p>
       </CardHeader>
       <CardContent className="pt-4">
-        <div className="overflow-x-auto">
-          <div className="inline-flex min-w-full flex-col gap-2">
-            <div className="relative ml-[31px] h-4">
-              {heatmap.months.map((month) => (
-                <span
-                  key={`${month.label}-${month.weekIndex}`}
-                  className="absolute text-[10px] text-white/40"
-                  style={{ left: `${month.weekIndex * 14}px` }}
-                >
-                  {month.label}
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-[3px]">
-              <div className="flex w-7 shrink-0 flex-col gap-[3px] text-[10px] leading-[11px] text-white/40">
-                <span className="h-[11px]">Mon</span>
-                <span className="h-[11px]" />
-                <span className="h-[11px]">Wed</span>
-                <span className="h-[11px]" />
-                <span className="h-[11px]">Fri</span>
-                <span className="h-[11px]" />
-                <span className="h-[11px]" />
-              </div>
-              {heatmap.weeks.map((week, weekIndex) => (
-                <div key={weekIndex} className="flex flex-col gap-[3px]">
-                  {week.map((cell) => (
-                    <span
-                      key={cell.date}
-                      title={cellTitle(cell)}
-                      className={cn("size-[11px] rounded-[2px]", cell.future && "opacity-40")}
-                      style={cellStyle(cell)}
-                    />
+        {groups.length === 0 ? (
+          <p className="text-[11px] text-white/40">{emptyLabel}</p>
+        ) : (
+          <div className="space-y-3">
+            {groups.map((group) => (
+              <div key={group.date} className="flex items-start gap-3">
+                <p className="w-12 shrink-0 pt-0.5 text-[10px] text-white/40">{group.label}</p>
+                <div className="flex flex-wrap gap-[4px]">
+                  {group.checks.map((check) => (
+                    <TradeCheckCell key={check.tradeId} check={check} />
                   ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/40">
-          <p>
-            {heatmap.confirmed + heatmap.against === 0
-              ? emptyLabel
-              : `${heatmap.confirmed} confirmed · ${heatmap.against} against`}
-          </p>
+          {checks.length > 0 ? (
+            <p>
+              {confirmed} confirmed · {against} against
+              {pending ? ` · ${pending} pending` : ""}
+            </p>
+          ) : (
+            <span />
+          )}
           <p className="flex items-center gap-[3px]">
             Against
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: LOSS[0] }} />
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: LOSS[3] }} />
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: "#171717" }} />
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: WIN[0] }} />
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: WIN[3] }} />
+            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: TONE.loss }} />
+            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: TONE.pending }} />
+            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: TONE.win }} />
             Confirmed
           </p>
         </div>

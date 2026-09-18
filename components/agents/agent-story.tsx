@@ -1,3 +1,4 @@
+import { getAgentSkillSection } from "@/lib/agents/skills";
 import { getAgentStory } from "@/lib/agents/stories";
 import type { AgentRiskProfile, AgentRosterStatus } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
@@ -42,29 +43,38 @@ export function AgentStatusWidgets({
 
 export function AgentStorySections({ agentId }: { agentId: string }) {
   const story = getAgentStory(agentId);
+  const goal = getAgentSkillSection(agentId, "Goal");
 
   if (!story) {
     return null;
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
-      <section>
-        <h2 className="text-[19px] font-medium tracking-tight">Strategy</h2>
-        <div className="mt-4 space-y-4 text-[15px] leading-7 text-white/60">
-          {story.strategy.map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
-        </div>
-      </section>
-      <section>
-        <h2 className="text-[19px] font-medium tracking-tight">How it worked</h2>
-        <div className="mt-4 space-y-4 text-[15px] leading-7 text-white/60">
-          {story.history.map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
-        </div>
-      </section>
+    <div className="space-y-8">
+      {goal ? (
+        <section>
+          <h2 className="text-[19px] font-medium tracking-tight">Goal</h2>
+          <p className="mt-4 text-[15px] leading-7 text-white/60">{goal}</p>
+        </section>
+      ) : null}
+      <div className="grid gap-8 lg:grid-cols-2">
+        <section>
+          <h2 className="text-[19px] font-medium tracking-tight">Strategy</h2>
+          <div className="mt-4 space-y-4 text-[15px] leading-7 text-white/60">
+            {story.strategy.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
+        <section>
+          <h2 className="text-[19px] font-medium tracking-tight">How it worked</h2>
+          <div className="mt-4 space-y-4 text-[15px] leading-7 text-white/60">
+            {story.history.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

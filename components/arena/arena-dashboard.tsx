@@ -10,13 +10,13 @@ import type { MomentumAlphaView } from "@/lib/agent/view";
 import type { LeaderboardAgent } from "@/types/arena";
 
 export function ArenaDashboard({
-  agents,
+  books,
   roster,
   live,
   summary,
   persistenceMode,
 }: {
-  agents: LeaderboardAgent[];
+  books: MomentumAlphaView[];
   roster: LeaderboardAgent[];
   live: MomentumAlphaView;
   summary: {
@@ -39,9 +39,9 @@ export function ArenaDashboard({
           startingCapital={summary.startingCapital}
           currentEquity={summary.totalEquity}
           series={live.equitySeries}
-          action={<PauseTradingButton status={live.agent.status} compact />}
+          action={<PauseTradingButton status={live.agent.status} agentId={live.agent.id} compact />}
         />
-        <AgentAllocationCard agents={agents} live={live} />
+        <AgentAllocationCard books={books} />
         <LatestDecisionCard decision={live.decisions[0] ?? null} />
         <div className="h-full md:col-span-2 xl:col-span-3">
           <AgentsTableCard agents={roster} />

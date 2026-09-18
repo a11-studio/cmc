@@ -430,7 +430,11 @@ function agentStatus(storeStatus: LeaderboardAgent["status"], cycles: readonly A
   return storeStatus;
 }
 
-export function buildMomentumAlphaView(store: Pick<AgentCycleStore, "getAccount" | "getAgentStatus" | "listCycles" | "getDayStartEquity">): MomentumAlphaView {
+export function buildAgentView(
+  store: Pick<AgentCycleStore, "getAccount" | "getAgentStatus" | "listCycles" | "getDayStartEquity">,
+  agentId = MOMENTUM_ALPHA_AGENT.id
+): MomentumAlphaView {
+  const definition = findAgentDefinition(agentId);
   const account = store.getAccount();
   const cycles = store.listCycles();
   const valuation = resolveValuation(account, cycles);
@@ -457,12 +461,12 @@ export function buildMomentumAlphaView(store: Pick<AgentCycleStore, "getAccount"
     .reverse();
 
   const agent: LeaderboardAgent = {
-    id: MOMENTUM_ALPHA_AGENT.id,
-    name: MOMENTUM_ALPHA_AGENT.name,
-    strategy: findAgentDefinition(MOMENTUM_ALPHA_AGENT.id)?.strategyName ?? "Narrative momentum",
-    description: findAgentDefinition(MOMENTUM_ALPHA_AGENT.id)?.description ?? AGENT_DESCRIPTION,
+    id: definition?.id ?? MOMENTUM_ALPHA_AGENT.id,
+    name: definition?.displayName ?? MOMENTUM_ALPHA_AGENT.name,
+    strategy: definition?.strategyName ?? "Narrative momentum",
+    description: definition?.description ?? AGENT_DESCRIPTION,
     status: agentStatus(store.getAgentStatus(), cycles),
-    mark: "momentum",
+    mark: definition?.mark ?? "momentum",
     equity: portfolio.equity,
     returnPercent: portfolio.returnPercent,
     drawdownPercent: portfolio.drawdownPercent,
@@ -509,6 +513,12 @@ export function buildMomentumAlphaView(store: Pick<AgentCycleStore, "getAccount"
     hasCycles: cycles.length > 0,
     tradeChecks: scoreTradesAgainstNextCheck(account.trades, cycles),
   };
+}
+
+export function buildMomentumAlphaView(
+  store: Pick<AgentCycleStore, "getAccount" | "getAgentStatus" | "listCycles" | "getDayStartEquity">
+): MomentumAlphaView {
+  return buildAgentView(store, MOMENTUM_ALPHA_AGENT.id);
 }
 
 export function serializeMomentumAlphaApi(view: MomentumAlphaView) {

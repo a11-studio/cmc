@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { runMomentumAlphaCycleAction, type ManualCycleState } from "@/app/actions/cycle";
 import { Button } from "@/components/ui/button";
 
-export function RunCycleButton({ compact = false }: { compact?: boolean }) {
+export function RunCycleButton({ compact = false, agentId }: { compact?: boolean; agentId?: string }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<ManualCycleState | null, FormData>(
     runMomentumAlphaCycleAction,
@@ -23,6 +23,7 @@ export function RunCycleButton({ compact = false }: { compact?: boolean }) {
 
   return (
     <form action={action} className={compact ? "inline-flex" : "flex flex-col items-start gap-2 sm:items-end"}>
+      {agentId ? <input type="hidden" name="agentId" value={agentId} /> : null}
       <Button type="submit" disabled={pending}>
         {pending ? "Running…" : "Run Cycle"}
       </Button>

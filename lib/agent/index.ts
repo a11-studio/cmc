@@ -10,6 +10,7 @@ export {
 export { createAgentLoopScheduler, cycleIdForSlot } from "@/lib/agent/scheduler";
 export { stampImmutableSnapshot, freezeMarketSnapshot } from "@/lib/agent/snapshot";
 export {
+  buildAgentView,
   buildMomentumAlphaView,
   serializeCycle,
   serializeMomentumAlphaApi,

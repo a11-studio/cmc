@@ -12,6 +12,7 @@ import {
 } from "@/lib/agent/persist";
 import { createInMemoryAgentStore } from "@/lib/agent/store";
 import type { AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
+import { findAgentDefinition, toAgentIdentity } from "@/lib/agents/registry";
 import { isSupabasePersistenceConfigured } from "@/lib/env.server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -22,6 +23,15 @@ function throwIfError(error: { message: string } | null, action: string): void {
   if (error) {
     throw new Error(`${action}: ${error.message}`);
   }
+}
+
+function identityFor(agentId: string) {
+  const definition = findAgentDefinition(agentId);
+  return definition ? toAgentIdentity(definition) : MOMENTUM_ALPHA_AGENT;
+}
+
+function emptyStore(agentId: string): AgentCycleStore {
+  return createInMemoryAgentStore({ initialCapital: identityFor(agentId).initialCapital });
 }
 
 export function createSupabaseArenaWriter(client: SupabaseClient): ArenaWriter {
@@ -37,21 +47,21 @@ export function createSupabaseArenaWriter(client: SupabaseClient): ArenaWriter {
   };
 }
 
-export async function hydrateMomentumAlphaStore(): Promise<AgentCycleStore> {
+export async function hydrateAgentStore(agentId: string): Promise<AgentCycleStore> {
   if (!isSupabasePersistenceConfigured()) {
-    return createInMemoryAgentStore();
+    return emptyStore(agentId);
   }
 
   const client = createSupabaseAdminClient();
 
   if (!client) {
-    return createInMemoryAgentStore();
+    return emptyStore(agentId);
   }
 
   const agentResult = await client
     .from("agents")
     .select("account_payload, status, day_start_equity, last_equity, day_key")
-    .eq("id", MOMENTUM_ALPHA_AGENT.id)
+    .eq("id", agentId)
     .maybeSingle();
 
   throwIfError(agentResult.error, "hydrate agent");
@@ -59,24 +69,26 @@ export async function hydrateMomentumAlphaStore(): Promise<AgentCycleStore> {
   const cyclesResult = await client
     .from("agent_cycles")
     .select("payload, status")
-    .eq("agent_id", MOMENTUM_ALPHA_AGENT.id)
+    .eq("agent_id", agentId)
     .order("started_at", { ascending: true });
 
   throwIfError(cyclesResult.error, "hydrate cycles");
 
   const state = persistedStateFromRows(
     (agentResult.data as PersistedAgentRow | null) ?? null,
-    (cyclesResult.data as PersistedCycleRow[] | null) ?? []
+    (cyclesResult.data as PersistedCycleRow[] | null) ?? [],
+    new Date(),
+    agentId
   );
 
   if (!state) {
-    return createInMemoryAgentStore();
+    return emptyStore(agentId);
   }
 
   return createStoreFromPersistedState(state);
 }
 
-export async function persistMomentumAlphaStore(store: AgentCycleStore): Promise<void> {
+export async function persistAgentStore(agentId: string, store: AgentCycleStore): Promise<void> {
   if (!isSupabasePersistenceConfigured()) {
     return;
   }
@@ -87,10 +99,10 @@ export async function persistMomentumAlphaStore(store: AgentCycleStore): Promise
     return;
   }
 
-  await persistArenaState(createSupabaseArenaWriter(client), snapshotPersistedState(store));
+  await persistArenaState(createSupabaseArenaWriter(client), snapshotPersistedState(store, new Date(), agentId));
 }
 
-export async function claimMomentumAlphaCycle(cycleId: string, now = new Date()): Promise<boolean> {
+export async function claimAgentCycle(agentId: string, cycleId: string, now = new Date()): Promise<boolean> {
   if (!isSupabasePersistenceConfigured()) {
     return true;
   }
@@ -102,7 +114,7 @@ export async function claimMomentumAlphaCycle(cycleId: string, now = new Date())
   }
 
   const { error } = await client.from("agent_cycles").insert({
-    agent_id: MOMENTUM_ALPHA_AGENT.id,
+    agent_id: agentId,
     cycle_id: cycleId,
     started_at: now.toISOString(),
     status: "CLAIMED",
@@ -117,19 +129,33 @@ export async function claimMomentumAlphaCycle(cycleId: string, now = new Date())
   return true;
 }
 
+export async function hydrateMomentumAlphaStore(): Promise<AgentCycleStore> {
+  return hydrateAgentStore(MOMENTUM_ALPHA_AGENT.id);
+}
+
+export async function persistMomentumAlphaStore(store: AgentCycleStore): Promise<void> {
+  return persistAgentStore(MOMENTUM_ALPHA_AGENT.id, store);
+}
+
+export async function claimMomentumAlphaCycle(cycleId: string, now = new Date()): Promise<boolean> {
+  return claimAgentCycle(MOMENTUM_ALPHA_AGENT.id, cycleId, now);
+}
+
 export function skippedDuplicateFromStore(
   store: AgentCycleStore,
   cycleId: string,
-  now = new Date()
+  now = new Date(),
+  agentId = MOMENTUM_ALPHA_AGENT.id
 ): AgentCycleResult {
   const prior = store.findCycle(cycleId);
   const account = store.getAccount();
   const startedAt = now.toISOString();
+  const identity = identityFor(agentId);
 
   return {
     status: "SKIPPED_DUPLICATE",
-    agentId: prior?.agentId ?? MOMENTUM_ALPHA_AGENT.id,
-    strategy: prior?.strategy ?? MOMENTUM_ALPHA_AGENT.strategy,
+    agentId: prior?.agentId ?? identity.id,
+    strategy: prior?.strategy ?? identity.strategy,
     cycleId,
     snapshotTimestamp: prior?.snapshotTimestamp ?? null,
     snapshot: prior?.snapshot ?? null,
@@ -145,8 +171,8 @@ export function skippedDuplicateFromStore(
     startedAt: prior?.startedAt ?? startedAt,
     completedAt: startedAt,
     trace: {
-      agentId: prior?.agentId ?? MOMENTUM_ALPHA_AGENT.id,
-      strategy: prior?.strategy ?? MOMENTUM_ALPHA_AGENT.strategy,
+      agentId: prior?.agentId ?? identity.id,
+      strategy: prior?.strategy ?? identity.strategy,
       cycleId,
       snapshotTimestamp: prior?.snapshotTimestamp ?? null,
       decision: prior?.decision ?? null,

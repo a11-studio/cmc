@@ -105,8 +105,8 @@ export default async function AgentDetailPage({
         {live ? (
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center justify-end gap-2">
-              <PauseTradingButton status={agent.status} compact />
-              {isManualCycleEnabled() ? <RunCycleButton compact /> : null}
+              <PauseTradingButton status={agent.status} agentId={agent.id} compact />
+              {isManualCycleEnabled() ? <RunCycleButton compact agentId={agent.id} /> : null}
             </div>
             {isManualCycleEnabled() ? (
               <p className="text-xs text-faint">Dev trigger · same path as the 15-minute cycle</p>

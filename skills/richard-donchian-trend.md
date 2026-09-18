@@ -33,6 +33,9 @@ Follow predefined signals rather than predicting reversals. The Risk Engine, not
 ## Time Horizon
 MEDIUM.
 
+## Goal
+Success is participating in a channel-style trend that persists across sessions, not catching a 1h wiggle. Staying flat in noise is a win. A trade that needs a fabricated lookback, or that only works if you ignore the next session, is a miss.
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 

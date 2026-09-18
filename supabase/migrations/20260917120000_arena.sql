@@ -173,13 +173,82 @@ begin
 end $$;
 
 insert into public.agents (id, name, description, strategy, initial_capital, status, risk_profile)
-values (
-  'momentum-alpha',
-  'Momentum Alpha',
-  'Follows short-term trend while respecting position caps',
-  'Momentum',
-  10000,
-  'ACTIVE',
-  'medium'
-)
-on conflict (id) do nothing;
+values
+  (
+    'momentum-alpha',
+    'Elon Musk',
+    'Follows short-term trend while respecting position caps',
+    'Narrative momentum',
+    10000,
+    'ACTIVE',
+    'medium'
+  ),
+  (
+    'richard-dennis',
+    'Richard Dennis',
+    'Systematic trend following inspired by Turtle breakout principles',
+    'The Turtle',
+    10000,
+    'ACTIVE',
+    'medium'
+  ),
+  (
+    'richard-donchian',
+    'Richard Donchian',
+    'Low-discretion breakout and channel-style trend following',
+    'The Trend',
+    10000,
+    'ACTIVE',
+    'medium'
+  ),
+  (
+    'jesse-livermore',
+    'Jesse Livermore',
+    'Price-action speculator that trades confirmed momentum, not stories',
+    'The Speculator',
+    10000,
+    'ACTIVE',
+    'aggressive'
+  ),
+  (
+    'paul-tudor-jones',
+    'Paul Tudor Jones',
+    'Capital-first macro regime and momentum trader',
+    'The Macro Trader',
+    10000,
+    'ACTIVE',
+    'medium'
+  ),
+  (
+    'jim-simons',
+    'Jim Simons',
+    'Systematic multi-signal decisions from observable snapshot features only',
+    'The Quant',
+    10000,
+    'ACTIVE',
+    'medium'
+  ),
+  (
+    'michael-burry',
+    'Michael Burry',
+    'Patient contrarian that fades excess, not strong unexhausted trends',
+    'The Contrarian',
+    10000,
+    'ACTIVE',
+    'conservative'
+  ),
+  (
+    'arthur-hayes',
+    'Arthur Hayes',
+    'Crypto-native macro trader that only uses snapshot liquidity and regime fields',
+    'The Macro + Crypto Liquidity',
+    10000,
+    'ACTIVE',
+    'aggressive'
+  )
+on conflict (id) do update
+set
+  name = excluded.name,
+  description = excluded.description,
+  strategy = excluded.strategy,
+  risk_profile = excluded.risk_profile;

@@ -163,6 +163,15 @@ describe("Momentum Alpha persistence mapping", () => {
     expect(rows.decisions[0]?.id).toBe("cycle-1");
   });
 
+  it("writes Richard Dennis rows under his agent id", () => {
+    const store = createInMemoryAgentStore();
+    const rows = toArenaWriteRows(snapshotPersistedState(store, NOW, "richard-dennis"), NOW);
+
+    expect(rows.agent.id).toBe("richard-dennis");
+    expect(rows.agent.name).toBe("Richard Dennis");
+    expect(rows.agent.strategy).toBe("The Turtle");
+  });
+
   it("ignores empty claimed cycle payloads", () => {
     expect(reviveCycle({})).toBeNull();
     expect(reviveCycle({ status: "CLAIMED" })).toBeNull();

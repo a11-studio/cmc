@@ -37,6 +37,9 @@ Respect major regime changes. Avoid excessive exposure when available liquidity/
 ## Time Horizon
 MEDIUM / LONG.
 
+## Goal
+Success is catching a liquidity or regime move that lasts beyond a session, not a 1h bounce. High-conviction size is only a win if snapshot market-wide fields agreed. A profitable scalp that contradicted the available regime is not this agent's goal.
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 

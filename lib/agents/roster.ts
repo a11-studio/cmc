@@ -1,11 +1,17 @@
 import { listArenaAgents } from "@/lib/agents/registry";
 import type { LeaderboardAgent } from "@/types/arena";
 
-export function buildAgentRoster(liveAgent: LeaderboardAgent): LeaderboardAgent[] {
+export function buildAgentRoster(liveAgents: LeaderboardAgent | readonly LeaderboardAgent[]): LeaderboardAgent[] {
+  const liveById = new Map(
+    (Array.isArray(liveAgents) ? liveAgents : [liveAgents]).map((agent) => [agent.id, agent])
+  );
+
   return listArenaAgents().map((definition) => {
-    if (definition.status === "LIVE" && definition.id === liveAgent.id) {
+    const live = liveById.get(definition.id);
+
+    if (definition.status === "LIVE" && live) {
       return {
-        ...liveAgent,
+        ...live,
         name: definition.displayName,
         strategy: definition.strategyName,
         description: definition.description,
@@ -28,7 +34,7 @@ export function buildAgentRoster(liveAgent: LeaderboardAgent): LeaderboardAgent[
       winRatePercent: 0,
       trades: 0,
       initialCapital: definition.initialCapital,
-      dataSource: "roster",
+      dataSource: definition.status === "LIVE" ? "live" : "roster",
       runtimeStatus: definition.status,
     };
   });

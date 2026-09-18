@@ -35,3 +35,13 @@ export function loadAgentSkillFor(agent: Pick<ArenaAgentDefinition, "id" | "skil
   const definition = typeof agent === "string" ? getAgentDefinition(agent) : agent;
   return loadAgentSkill(definition.skillPath);
 }
+
+export function extractSkillSection(markdown: string, heading: string): string {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = markdown.match(new RegExp(`## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`));
+  return match?.[1]?.trim() ?? "";
+}
+
+export function getAgentSkillSection(agentId: string, heading: string): string {
+  return extractSkillSection(loadAgentSkillFor(agentId), heading);
+}

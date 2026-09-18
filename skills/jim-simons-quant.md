@@ -37,6 +37,9 @@ Avoid oversized bets based on subjective conviction. Insufficient data is a HOLD
 ## Time Horizon
 SHORT / MEDIUM.
 
+## Goal
+Success is many small, consistent edges stacking — not one heroic call. A trade is a win when several independent snapshot features agreed and the move followed that agreement on a short-to-medium horizon. A thin-data guess that happens to work is not success.
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 

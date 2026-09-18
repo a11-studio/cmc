@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { executeMomentumAlphaCycle } from "@/lib/arena/data";
+import { executeConfiguredAgentCycle, executeLiveAgentCycles } from "@/lib/arena/data";
 import { isManualCycleEnabled } from "@/lib/agent/view";
+import { listLiveAgents } from "@/lib/agents/registry";
 
 export type ManualCycleState = {
   ok: boolean;
@@ -22,23 +23,34 @@ const disabledState: ManualCycleState = {
   message: "Manual Run Cycle is disabled in production.",
 };
 
+function revalidateArena(agentId?: string) {
+  revalidatePath("/", "layout");
+  revalidatePath("/");
+  revalidatePath("/activity");
+
+  for (const agent of listLiveAgents()) {
+    revalidatePath(`/agents/${agent.id}`);
+  }
+
+  if (agentId) {
+    revalidatePath(`/agents/${agentId}`);
+  }
+}
+
 export async function runMomentumAlphaCycleAction(
   previousState: ManualCycleState | null,
   formData: FormData
 ): Promise<ManualCycleState> {
   void previousState;
-  void formData;
 
   if (!isManualCycleEnabled()) {
     return disabledState;
   }
 
-  const result = await executeMomentumAlphaCycle();
+  const agentId = String(formData.get("agentId") ?? "").trim();
+  const result = agentId ? await executeConfiguredAgentCycle(agentId) : await executeLiveAgentCycles();
 
-  revalidatePath("/", "layout");
-  revalidatePath("/");
-  revalidatePath("/activity");
-  revalidatePath("/agents/momentum-alpha");
+  revalidateArena(agentId || undefined);
   if (result.cycleId) {
     revalidatePath(`/decisions/${result.cycleId}`);
   }

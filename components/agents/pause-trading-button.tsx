@@ -8,9 +8,11 @@ import type { AgentStatus } from "@/types/arena";
 
 export function PauseTradingButton({
   status,
+  agentId,
 }: {
   status: AgentStatus;
   compact?: boolean;
+  agentId?: string;
 }) {
   const router = useRouter();
   const paused = status === "PAUSED";
@@ -30,6 +32,7 @@ export function PauseTradingButton({
 
   return (
     <form action={action} className="inline-flex">
+      {agentId ? <input type="hidden" name="agentId" value={agentId} /> : null}
       <input type="hidden" name="intent" value={paused ? "resume" : "pause"} />
       <Button type="submit" variant={paused ? "default" : "secondary"} disabled={pending}>
         {pending ? (paused ? "Resuming…" : "Pausing…") : paused ? "Resume" : "Pause"}

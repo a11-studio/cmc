@@ -4,30 +4,44 @@ import { createGeminiDecisionEngine } from "@/lib/ai/provider";
 import { runAgentCycle } from "@/lib/agent/cycle";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import {
-  claimMomentumAlphaCycle,
-  hydrateMomentumAlphaStore,
-  persistMomentumAlphaStore,
+  claimAgentCycle,
+  hydrateAgentStore,
+  persistAgentStore,
   skippedDuplicateFromStore,
 } from "@/lib/agent/durable";
 import { cycleIdForSlot } from "@/lib/agent/scheduler";
 import { createInMemoryAgentStore } from "@/lib/agent/store";
 import type { AgentCycleDependencies, AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
-import { getAgentDefinition } from "@/lib/agents/registry";
+import { getAgentDefinition, listLiveAgents, toAgentIdentity } from "@/lib/agents/registry";
 import { isSupabasePersistenceConfigured } from "@/lib/env.server";
 import { createMarketDataProvider } from "@/lib/market/provider";
 import { executePaperDecision } from "@/lib/paper/engine";
 import { createPaperAccount } from "@/lib/paper/portfolio";
 import { evaluateRisk } from "@/lib/risk/evaluate";
 
-const memoryStore = createInMemoryAgentStore();
+const memoryStores = new Map<string, AgentCycleStore>();
 const evaluationStores = new Map<string, AgentCycleStore>();
 
-async function resolveStore(): Promise<AgentCycleStore> {
-  if (!isSupabasePersistenceConfigured()) {
-    return memoryStore;
+function memoryStoreFor(agentId: string): AgentCycleStore {
+  const existing = memoryStores.get(agentId);
+
+  if (existing) {
+    return existing;
   }
 
-  return hydrateMomentumAlphaStore();
+  const store = createInMemoryAgentStore({
+    initialCapital: getAgentDefinition(agentId).initialCapital,
+  });
+  memoryStores.set(agentId, store);
+  return store;
+}
+
+async function resolveStore(agentId: string): Promise<AgentCycleStore> {
+  if (!isSupabasePersistenceConfigured()) {
+    return memoryStoreFor(agentId);
+  }
+
+  return hydrateAgentStore(agentId);
 }
 
 function cycleDependencies(store: AgentCycleStore): AgentCycleDependencies {
@@ -56,45 +70,72 @@ function evaluationStoreFor(agentId: string, initialCapital: number): AgentCycle
   return store;
 }
 
-export async function getMomentumAlphaStore(): Promise<AgentCycleStore> {
-  return resolveStore();
+export async function getAgentStore(agentId: string): Promise<AgentCycleStore> {
+  return resolveStore(agentId);
 }
 
-export async function setMomentumAlphaTradingStatus(status: "ACTIVE" | "PAUSED") {
-  const store = await resolveStore();
+export async function getMomentumAlphaStore(): Promise<AgentCycleStore> {
+  return getAgentStore(MOMENTUM_ALPHA_AGENT.id);
+}
+
+export async function setAgentTradingStatus(agentId: string, status: "ACTIVE" | "PAUSED") {
+  const store = await resolveStore(agentId);
   store.setAgentStatus(status);
 
   try {
-    await persistMomentumAlphaStore(store);
+    await persistAgentStore(agentId, store);
   } catch (error) {
-    console.error("Failed to persist Elon Musk trading status", error);
+    console.error(`Failed to persist ${agentId} trading status`, error);
   }
 
   return store.getAgentStatus();
 }
 
-export async function runMomentumAlphaCycle(options?: { cycleId?: string }): Promise<AgentCycleResult> {
-  const now = new Date();
-  const cycleId = options?.cycleId ?? cycleIdForSlot(now);
-  const store = await resolveStore();
+export async function setMomentumAlphaTradingStatus(status: "ACTIVE" | "PAUSED") {
+  return setAgentTradingStatus(MOMENTUM_ALPHA_AGENT.id, status);
+}
 
-  if (!(await claimMomentumAlphaCycle(cycleId, now))) {
-    return skippedDuplicateFromStore(store, cycleId, now);
+export async function runLiveAgentCycle(
+  agentId: string,
+  options?: { cycleId?: string }
+): Promise<AgentCycleResult> {
+  const definition = getAgentDefinition(agentId);
+  const agent = toAgentIdentity(definition);
+  const now = new Date();
+  const cycleId = options?.cycleId ?? cycleIdForSlot(now, definition.id);
+  const store = await resolveStore(definition.id);
+
+  if (!(await claimAgentCycle(definition.id, cycleId, now))) {
+    return skippedDuplicateFromStore(store, cycleId, now, definition.id);
   }
 
   const result = await runAgentCycle({
-    agent: MOMENTUM_ALPHA_AGENT,
+    agent,
     cycleId,
     deps: cycleDependencies(store),
   });
 
   try {
-    await persistMomentumAlphaStore(store);
+    await persistAgentStore(definition.id, store);
   } catch (error) {
-    console.error("Failed to persist Elon Musk cycle", error);
+    console.error(`Failed to persist ${definition.displayName} cycle`, error);
   }
 
   return result;
+}
+
+export async function runMomentumAlphaCycle(options?: { cycleId?: string }): Promise<AgentCycleResult> {
+  return runLiveAgentCycle(MOMENTUM_ALPHA_AGENT.id, options);
+}
+
+export async function runLiveAgentCycles(options?: { cycleId?: string }): Promise<AgentCycleResult[]> {
+  const results: AgentCycleResult[] = [];
+
+  for (const agent of listLiveAgents()) {
+    results.push(await runLiveAgentCycle(agent.id, options));
+  }
+
+  return results;
 }
 
 export async function runConfiguredAgentCycle(
@@ -103,8 +144,8 @@ export async function runConfiguredAgentCycle(
 ): Promise<AgentCycleResult> {
   const definition = getAgentDefinition(agentId);
 
-  if (definition.id === MOMENTUM_ALPHA_AGENT.id) {
-    return runMomentumAlphaCycle(options);
+  if (definition.status === "LIVE") {
+    return runLiveAgentCycle(definition.id, options);
   }
 
   const now = new Date();

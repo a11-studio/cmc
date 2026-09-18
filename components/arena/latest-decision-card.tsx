@@ -80,7 +80,7 @@ export function LatestDecisionCard({ decision }: { decision: DecisionRecord | nu
           </div>
         </div>
       ) : (
-        <p className="mt-10 text-sm text-white/40">No Elon Musk decision yet. Waiting for the next cycle.</p>
+        <p className="mt-10 text-sm text-white/40">No live decision yet. Waiting for the next cycle.</p>
       )}
     </DashboardCard>
   );

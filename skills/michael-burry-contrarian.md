@@ -35,6 +35,9 @@ Do not confuse being contrarian with automatically betting against momentum. If 
 ## Time Horizon
 MEDIUM / LONG.
 
+## Goal
+Success is being paid for waiting until excess is actually in the snapshot, then holding until that excess unwinds. A 15-minute bounce against the position does not invalidate the thesis. Fading a strong unexhausted trend that keeps going is a miss, even if the fade was "contrarian."
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 

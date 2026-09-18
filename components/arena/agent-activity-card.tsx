@@ -39,7 +39,7 @@ export function AgentActivityCard({ events }: { events: ActivityEvent[] }) {
   return (
     <DashboardCard>
       <DashboardCardTitle>Agent activity</DashboardCardTitle>
-      <p className="mt-1 text-[14px] leading-5 font-medium text-white/50">Recent Elon Musk cycles</p>
+      <p className="mt-1 text-[14px] leading-5 font-medium text-white/50">Recent live cycles</p>
 
       {recent.length === 0 ? (
         <p className="mt-10 text-sm text-white/40">No live activity yet.</p>

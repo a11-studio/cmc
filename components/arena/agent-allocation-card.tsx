@@ -2,7 +2,6 @@ import { DashboardCard, DashboardCardTitle } from "@/components/arena/dashboard-
 import { DataSourceBadge } from "@/components/shared/data-source-badge";
 import { formatPercent } from "@/lib/format";
 import type { MomentumAlphaView } from "@/lib/agent/view";
-import type { LeaderboardAgent } from "@/types/arena";
 
 const SLICE_COLORS = ["#00D4CF", "#008D8A", "#006967", "#0C3E3D", "#1A2E2E"] as const;
 
@@ -14,29 +13,26 @@ type AllocationSlice = {
   color: string;
 };
 
-export function buildAllocationSlices(agents: LeaderboardAgent[], live: MomentumAlphaView): AllocationSlice[] {
-  const total = agents.reduce((sum, agent) => sum + agent.equity, 0);
+export function buildAllocationSlices(books: MomentumAlphaView[]): AllocationSlice[] {
+  const total = books.reduce((sum, book) => sum + book.agent.equity, 0);
 
   if (!(total > 0)) {
     return [];
   }
 
-  const slices: AllocationSlice[] = agents.map((agent, index) => {
-    const isLive = agent.dataSource === "live";
-    const deployed = isLive
-      ? live.positions.reduce((sum, position) => sum + Math.abs(position.marketValue), 0)
-      : agent.equity;
+  const slices: AllocationSlice[] = books.map((book, index) => {
+    const deployed = book.positions.reduce((sum, position) => sum + Math.abs(position.marketValue), 0);
 
     return {
-      id: agent.id,
-      label: agent.name,
+      id: book.agent.id,
+      label: book.agent.name,
       percent: (deployed / total) * 100,
-      sample: agent.dataSource === "sample",
+      sample: book.agent.dataSource === "sample",
       color: SLICE_COLORS[index] ?? SLICE_COLORS[SLICE_COLORS.length - 1]!,
     };
   });
 
-  const cashPercent = (live.cash / total) * 100;
+  const cashPercent = (books.reduce((sum, book) => sum + book.cash, 0) / total) * 100;
 
   if (cashPercent >= 0.05) {
     slices.push({
@@ -52,13 +48,11 @@ export function buildAllocationSlices(agents: LeaderboardAgent[], live: Momentum
 }
 
 export function AgentAllocationCard({
-  agents,
-  live,
+  books,
 }: {
-  agents: LeaderboardAgent[];
-  live: MomentumAlphaView;
+  books: MomentumAlphaView[];
 }) {
-  const slices = buildAllocationSlices(agents, live);
+  const slices = buildAllocationSlices(books);
 
   return (
     <DashboardCard>

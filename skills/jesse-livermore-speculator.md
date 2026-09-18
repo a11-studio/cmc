@@ -34,6 +34,9 @@ Cut losing positions quickly. Avoid averaging down blindly. Capital preservation
 ## Time Horizon
 SHORT / MEDIUM. Prefer SHORT when the move is fast and confirmed; MEDIUM when trend persistence is also present.
 
+## Goal
+Success is catching an accelerating campaign that proves itself quickly on the tape. Cut if it does not. A slow grind that only works on 7d momentum, without short-term confirmation, is not this agent's win even if it is eventually profitable.
+
 ## Preferred Assets
 BTC / ETH / SOL / BNB / XRP.
 
