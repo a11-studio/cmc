@@ -88,10 +88,8 @@ describe("agent skill registry", () => {
       "richard-dennis",
       "richard-donchian",
       "jesse-livermore",
-      "paul-tudor-jones",
       "jim-simons",
       "michael-burry",
-      "arthur-hayes",
     ]);
 
     for (const agent of ARENA_AGENTS) {
@@ -138,29 +136,35 @@ describe("agent skill registry", () => {
     expect(elonPersonality).not.toBe(dennisPersonality);
   });
 
-  it("keeps Elon Musk and Richard Dennis LIVE", () => {
+  it("keeps six named strategies LIVE", () => {
     const live = listArenaAgents().filter((agent) => agent.status === "LIVE");
-    expect(live.map((agent) => agent.id)).toEqual(["momentum-alpha", "richard-dennis"]);
-    expect(getAgentDefinition("momentum-alpha").status).toBe("LIVE");
-    expect(getAgentDefinition("richard-dennis").status).toBe("LIVE");
-    expect(getAgentDefinition("momentum-alpha").strategyName).toBe("Narrative momentum");
-    expect(getAgentDefinition("richard-dennis").strategyName).toBe("The Turtle");
+    expect(live.map((agent) => agent.id)).toEqual([
+      "momentum-alpha",
+      "richard-dennis",
+      "richard-donchian",
+      "jesse-livermore",
+      "jim-simons",
+      "michael-burry",
+    ]);
+    expect(getAgentDefinition("jim-simons").strategyName).toBe("The Quant");
+    expect(getAgentDefinition("michael-burry").strategyName).toBe("The Contrarian");
   });
 
   it("does not mark sample or ready agents as LIVE", () => {
     const roster = buildAgentRoster(liveAgent());
+    const liveIds = [
+      "momentum-alpha",
+      "richard-dennis",
+      "richard-donchian",
+      "jesse-livermore",
+      "jim-simons",
+      "michael-burry",
+    ];
 
-    expect(roster.filter((agent) => agent.runtimeStatus === "LIVE")).toHaveLength(2);
-    expect(roster.filter((agent) => agent.runtimeStatus === "LIVE").map((agent) => agent.id)).toEqual([
-      "momentum-alpha",
-      "richard-dennis",
-    ]);
+    expect(roster.filter((agent) => agent.runtimeStatus === "LIVE").map((agent) => agent.id)).toEqual(liveIds);
     expect(roster.some((agent) => agent.dataSource === "sample")).toBe(false);
-    expect(roster.filter((agent) => agent.dataSource === "live").map((agent) => agent.id)).toEqual([
-      "momentum-alpha",
-      "richard-dennis",
-    ]);
-    expect(roster.filter((agent) => agent.runtimeStatus === "READY")).toHaveLength(6);
+    expect(roster.filter((agent) => agent.dataSource === "live").map((agent) => agent.id)).toEqual(liveIds);
+    expect(roster.filter((agent) => agent.runtimeStatus === "READY")).toEqual([]);
   });
 
   it("fails safely on invalid agent IDs", () => {

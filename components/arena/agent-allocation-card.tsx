@@ -1,17 +1,11 @@
-import { DashboardCard, DashboardCardTitle } from "@/components/arena/dashboard-card";
+import { DashboardCard, DashboardCardSubtitle, DashboardCardTitle } from "@/components/arena/dashboard-card";
+import { CompositionTrack } from "@/components/arena/composition-bar";
 import { DataSourceBadge } from "@/components/shared/data-source-badge";
 import { formatPercent } from "@/lib/format";
+import { TEAL, type RankedShare } from "@/lib/market/shares";
 import type { MomentumAlphaView } from "@/lib/agent/view";
 
-const SLICE_COLORS = ["#00D4CF", "#008D8A", "#006967", "#0C3E3D", "#1A2E2E"] as const;
-
-type AllocationSlice = {
-  id: string;
-  label: string;
-  percent: number;
-  sample: boolean;
-  color: string;
-};
+type AllocationSlice = RankedShare & { sample: boolean };
 
 export function buildAllocationSlices(books: MomentumAlphaView[]): AllocationSlice[] {
   const total = books.reduce((sum, book) => sum + book.agent.equity, 0);
@@ -20,31 +14,38 @@ export function buildAllocationSlices(books: MomentumAlphaView[]): AllocationSli
     return [];
   }
 
-  const slices: AllocationSlice[] = books.map((book, index) => {
+  const slices: AllocationSlice[] = books.map((book) => {
     const deployed = book.positions.reduce((sum, position) => sum + Math.abs(position.marketValue), 0);
 
     return {
       id: book.agent.id,
       label: book.agent.name,
+      value: deployed,
       percent: (deployed / total) * 100,
       sample: book.agent.dataSource === "sample",
-      color: SLICE_COLORS[index] ?? SLICE_COLORS[SLICE_COLORS.length - 1]!,
+      color: TEAL[0],
     };
   });
 
-  const cashPercent = (books.reduce((sum, book) => sum + book.cash, 0) / total) * 100;
+  const cash = books.reduce((sum, book) => sum + book.cash, 0);
+  const deployed = slices.filter((slice) => slice.percent >= 0.05);
+  const colored = deployed.map((slice, index) => ({
+    ...slice,
+    color: TEAL[index] ?? TEAL[TEAL.length - 2] ?? TEAL[0],
+  }));
 
-  if (cashPercent >= 0.05) {
-    slices.push({
+  if (cash / total >= 0.0005) {
+    colored.push({
       id: "cash",
       label: "Cash",
-      percent: cashPercent,
+      value: cash,
+      percent: (cash / total) * 100,
       sample: false,
-      color: SLICE_COLORS[4],
+      color: TEAL[TEAL.length - 1]!,
     });
   }
 
-  return slices.filter((slice) => slice.percent > 0);
+  return colored.filter((slice) => slice.percent >= 0.05);
 }
 
 export function AgentAllocationCard({
@@ -57,17 +58,10 @@ export function AgentAllocationCard({
   return (
     <DashboardCard>
       <DashboardCardTitle>Agent allocation</DashboardCardTitle>
-      <p className="mt-1 text-[14px] leading-5 font-medium text-white/50">Deployed capital versus cash</p>
+      <DashboardCardSubtitle>Deployed capital versus cash</DashboardCardSubtitle>
 
-      <div className="mt-10 flex h-3 overflow-hidden rounded-full bg-white/6">
-        {slices.map((slice) => (
-          <div
-            key={slice.id}
-            className="h-full"
-            style={{ width: `${slice.percent}%`, backgroundColor: slice.color }}
-            title={`${slice.label} ${formatPercent(slice.percent, false, 0)}`}
-          />
-        ))}
+      <div className="mt-10">
+        <CompositionTrack slices={slices} />
       </div>
 
       <ul className="mt-8 space-y-4">

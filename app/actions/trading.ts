@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import { listLiveAgents } from "@/lib/agents/registry";
 import { setLiveAgentTradingStatus } from "@/lib/arena/data";
 
@@ -18,9 +17,13 @@ export async function setMomentumAlphaTradingAction(
   void previousState;
 
   const intent = formData.get("intent");
-  const agentId = String(formData.get("agentId") ?? "").trim() || MOMENTUM_ALPHA_AGENT.id;
+  const agentId = String(formData.get("agentId") ?? "").trim();
   const nextStatus = intent === "resume" ? "ACTIVE" : "PAUSED";
-  await setLiveAgentTradingStatus(agentId, nextStatus);
+  const targets = agentId ? [agentId] : listLiveAgents().map((agent) => agent.id);
+
+  for (const id of targets) {
+    await setLiveAgentTradingStatus(id, nextStatus);
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/");

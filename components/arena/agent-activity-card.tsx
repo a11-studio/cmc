@@ -1,69 +1,35 @@
-import { DashboardCard, DashboardCardTitle } from "@/components/arena/dashboard-card";
-import { formatRelativeTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { ActivityEvent, ActivityEventType } from "@/types/arena";
+import { AgentActivityFills, type ActivityFill } from "@/components/arena/agent-activity-fills";
+import { DashboardCard, DashboardCardSubtitle, DashboardCardTitle } from "@/components/arena/dashboard-card";
+import { latestFillBatch } from "@/lib/arena/activity-fills";
+import type { MomentumAlphaView } from "@/lib/agent/view";
 
-const STATUS_LABEL: Record<ActivityEventType, string> = {
-  ANALYZING: "ANALYZING",
-  SIGNAL: "DECISION",
-  NEWS: "ANALYZING",
-  DECISION: "DECISION",
-  RISK_CHECK: "RISK CHECK",
-  TRADE_EXECUTED: "TRADE EXECUTED",
-  TRADE_REJECTED: "BLOCKED",
-  ERROR: "FAILED",
-};
-
-function activityCopy(event: ActivityEvent) {
-  if (event.type === "ANALYZING") {
-    return "Market analysis complete · BTC / ETH / SOL / BNB / XRP";
-  }
-
-  return event.description;
+function recentFills(books: MomentumAlphaView[], limit = 32): ActivityFill[] {
+  return books
+    .flatMap((book) =>
+      book.trades.map((trade) => ({
+        ...trade,
+        agentId: book.agent.id,
+        agentName: book.agent.name,
+        mark: book.agent.mark,
+      }))
+    )
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+    .slice(0, limit);
 }
 
-const STATUS_TONE: Record<ActivityEventType, string> = {
-  ANALYZING: "text-[#8ADF7B]",
-  SIGNAL: "text-white",
-  NEWS: "text-white/55",
-  DECISION: "text-white",
-  RISK_CHECK: "text-[#F59E0B]",
-  TRADE_EXECUTED: "text-[#8ADF7B]",
-  TRADE_REJECTED: "text-[#F87171]",
-  ERROR: "text-[#F87171]",
-};
-
-export function AgentActivityCard({ events }: { events: ActivityEvent[] }) {
-  const recent = [...events].reverse().slice(0, 6);
+export function AgentActivityCard({ books }: { books: MomentumAlphaView[] }) {
+  const { latest, older } = latestFillBatch(recentFills(books));
 
   return (
     <DashboardCard>
-      <DashboardCardTitle>Agent activity</DashboardCardTitle>
-      <p className="mt-1 text-[14px] leading-5 font-medium text-white/50">Recent live cycles</p>
-
-      {recent.length === 0 ? (
-        <p className="mt-10 text-sm text-white/40">No live activity yet.</p>
+      {latest.length === 0 ? (
+        <>
+          <DashboardCardTitle>Agent activity</DashboardCardTitle>
+          <DashboardCardSubtitle>Recent fills</DashboardCardSubtitle>
+          <p className="mt-10 text-sm text-white/40">No fills yet. HOLD cycles stay off this list.</p>
+        </>
       ) : (
-        <ul className="mt-8 divide-y divide-white/6">
-          {recent.map((event) => (
-            <li key={event.id} className="flex items-start justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium tracking-[0.14em] text-white/40 uppercase">
-                  {event.agentName === "Momentum" || event.agentName === "Momentum Alpha"
-                    ? "Elon Musk"
-                    : event.agentName}
-                </p>
-                <p className={cn("mt-1 text-sm font-medium", STATUS_TONE[event.type])}>
-                  {STATUS_LABEL[event.type]}
-                </p>
-                <p className="mt-1 truncate text-[13px] text-white/50">{activityCopy(event)}</p>
-              </div>
-              <time className="shrink-0 text-[12px] text-white/35" dateTime={event.createdAt}>
-                {formatRelativeTime(event.createdAt)}
-              </time>
-            </li>
-          ))}
-        </ul>
+        <AgentActivityFills latest={latest} older={older} />
       )}
     </DashboardCard>
   );

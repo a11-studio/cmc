@@ -6,7 +6,7 @@ export type RankedShare = {
   color: string;
 };
 
-const TEAL = ["#00D4CF", "#008D8A", "#006967", "#0C3E3D", "#1A2E2E"] as const;
+export const TEAL = ["#00D4CF", "#008D8A", "#006967", "#0A5250", "#0C3E3D", "#152928", "#1A2E2E"] as const;
 
 export function rankShares(
   items: Array<{ name: string; value: number }>,

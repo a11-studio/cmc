@@ -44,3 +44,57 @@ export function equityChange(current: number, baseline: number) {
 
   return { amount, percent };
 }
+
+export function combineEquitySeries(
+  books: readonly { equitySeries: readonly EquityChartPoint[] }[]
+): EquityChartPoint[] {
+  if (books.length === 0) {
+    return [];
+  }
+
+  const agents = books.map((book) => {
+    const start = book.equitySeries[0]?.equity ?? 0;
+    const points = book.equitySeries.flatMap((point) => {
+      if (!point.at) {
+        return [];
+      }
+
+      const at = Date.parse(point.at);
+
+      if (!Number.isFinite(at)) {
+        return [];
+      }
+
+      return [{ at, equity: point.equity }];
+    });
+
+    points.sort((left, right) => left.at - right.at);
+
+    return { start, points };
+  });
+
+  const startEquity = agents.reduce((sum, agent) => sum + agent.start, 0);
+  const times = [...new Set(agents.flatMap((agent) => agent.points.map((point) => point.at)))].sort(
+    (left, right) => left - right
+  );
+
+  return [
+    { equity: startEquity },
+    ...times.map((time) => ({
+      equity: agents.reduce((sum, agent) => {
+        let value = agent.start;
+
+        for (const point of agent.points) {
+          if (point.at > time) {
+            break;
+          }
+
+          value = point.equity;
+        }
+
+        return sum + value;
+      }, 0),
+      at: new Date(time).toISOString(),
+    })),
+  ];
+}

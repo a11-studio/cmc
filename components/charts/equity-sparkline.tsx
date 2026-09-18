@@ -228,7 +228,7 @@ export function EquitySparkline({
                 <SignedUsd value={change.amount} />
                 <SignedPercent value={change.percent} digits={2} />
               </p>
-              {active.label ? (
+              {active.label && !isHero ? (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   <TickerPhrase text={active.label} size="xs" />
                 </p>
@@ -267,7 +267,7 @@ export function EquitySparkline({
 
       <p className="sr-only" aria-live="polite">
         {formatUsd(active.equity)} {change.percent.toFixed(2)} percent versus start
-        {active.label ? `, ${active.label}` : ""}
+        {!isHero && active.label ? `, ${active.label}` : ""}
       </p>
     </div>
   );

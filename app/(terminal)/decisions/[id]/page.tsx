@@ -117,7 +117,7 @@ export default async function DecisionPage({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-3 sm:grid-cols-2">
+              <SummaryList>
                 <SummaryRow label="Side" value={decision.action} />
                 <SummaryRow label="Asset" value={<AssetTicker symbol={decision.symbol} />} />
                 <SummaryRow label="Allocation" value={`${decision.allocationPercent}%`} />
@@ -159,7 +159,7 @@ export default async function DecisionPage({
                     }
                   />
                 ) : null}
-              </dl>
+              </SummaryList>
             </CardContent>
           </Card>
         </TabsContent>
@@ -172,7 +172,7 @@ export default async function DecisionPage({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-3 sm:grid-cols-2">
+              <SummaryList>
                 <SummaryRow
                   label="Price"
                   value={
@@ -214,7 +214,7 @@ export default async function DecisionPage({
                       : "—")
                   }
                 />
-              </dl>
+              </SummaryList>
             </CardContent>
           </Card>
         </TabsContent>
@@ -273,7 +273,7 @@ export default async function DecisionPage({
                   </ul>
                 )}
               </div>
-              <dl className="grid gap-3 sm:grid-cols-2">
+              <SummaryList>
                 <SummaryRow
                   label="Requested allocation"
                   value={`${decision.requestedAllocationPercent ?? decision.allocationPercent}%`}
@@ -292,7 +292,7 @@ export default async function DecisionPage({
                 {decision.takeProfitPercent != null ? (
                   <SummaryRow label="Take profit" value={`${decision.takeProfitPercent}%`} />
                 ) : null}
-              </dl>
+              </SummaryList>
             </CardContent>
           </Card>
         </TabsContent>
@@ -339,6 +339,12 @@ function StatusChip({ decision }: { decision: DecisionRecord }) {
   );
 }
 
+function SummaryList({ children }: { children: ReactNode }) {
+  return (
+    <dl className="grid sm:grid-cols-2 sm:gap-x-10 lg:gap-x-16">{children}</dl>
+  );
+}
+
 function SummaryRow({
   label,
   value,
@@ -347,9 +353,9 @@ function SummaryRow({
   value: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border-subtle py-2 last:border-b-0">
-      <dt className="text-sm text-tertiary">{label}</dt>
-      <dd className="text-sm tabular-nums text-foreground">{value}</dd>
+    <div className="grid grid-cols-[10.5rem_minmax(0,1fr)] items-center gap-x-4 border-b border-border-subtle py-2.5">
+      <dt className="text-sm font-medium text-tertiary">{label}</dt>
+      <dd className="min-w-0 text-sm font-medium tabular-nums text-foreground">{value}</dd>
     </div>
   );
 }

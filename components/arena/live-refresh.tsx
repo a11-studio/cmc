@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ARENA_LIVE_REFRESH_EVENT } from "@/lib/arena/live-events";
 
-const REALTIME_TABLES = ["activity_events", "portfolio_snapshots", "trades", "agents"] as const;
+const REALTIME_TABLES = ["activity_events", "portfolio_snapshots", "trades", "agents", "arena_chat_messages"] as const;
 
 export function LiveRefresh() {
   const router = useRouter();

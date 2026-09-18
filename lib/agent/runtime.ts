@@ -122,6 +122,13 @@ export async function runLiveAgentCycle(
     console.error(`Failed to persist ${definition.displayName} cycle`, error);
   }
 
+  try {
+    const { maybePostArenaChat } = await import("@/lib/chat/run");
+    await maybePostArenaChat(result);
+  } catch (error) {
+    console.error(`Failed to post ${definition.displayName} floor chat`, error);
+  }
+
   return result;
 }
 

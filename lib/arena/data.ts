@@ -122,6 +122,7 @@ export async function getArenaDashboard() {
     },
     summary: getArenaSummary(agents),
     persistenceMode: getPersistenceMode(),
+    paused: books.length > 0 && books.every((book) => book.agent.status === "PAUSED"),
   };
 }
 

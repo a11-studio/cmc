@@ -57,13 +57,13 @@ export function AgentsTableCard({ agents }: { agents: LeaderboardAgent[] }) {
         <table className="w-full min-w-[880px] border-separate border-spacing-0 text-left text-sm">
           <thead>
             <tr className="text-[12px] text-white/40">
-              <th className="pb-3 font-medium">Agent</th>
-              <th className="pb-3 font-medium">Strategy</th>
-              <th className="pb-3 text-right font-medium">Equity</th>
-              <th className="pb-3 text-right font-medium">Coins</th>
-              <th className="pb-3 text-right font-medium">Cash</th>
-              <th className="pb-3 text-right font-medium">Return</th>
-              <th className="pb-3 text-right font-medium">Drawdown</th>
+              <th className="pb-3 pr-4 font-medium">Agent</th>
+              <th className="pb-3 pr-4 font-medium">Strategy</th>
+              <th className="pb-3 pr-4 text-right font-medium">Equity</th>
+              <th className="pb-3 pr-4 text-right font-medium">Coins</th>
+              <th className="pb-3 pr-4 text-right font-medium">Cash</th>
+              <th className="pb-3 pr-4 text-right font-medium">Return</th>
+              <th className="pb-3 pr-4 text-right font-medium">Drawdown</th>
               <th className="pb-3 text-right font-medium">Status</th>
             </tr>
           </thead>

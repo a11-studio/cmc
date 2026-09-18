@@ -46,7 +46,7 @@ export default async function ActivityPage() {
       ) : (
         <EmptyState
           title="No live activity yet."
-          description="Cycles appear here after Elon or Dennis completes ANALYZING → DECISION → RISK CHECK → TRADE."
+          description="Cycles appear here after a live agent completes ANALYZING → DECISION → RISK CHECK → TRADE."
         />
       )}
     </div>

@@ -6,6 +6,7 @@ import { LatestDecisionCard } from "@/components/arena/latest-decision-card";
 import { RiskOverviewCard } from "@/components/arena/risk-overview-card";
 import { PauseTradingButton } from "@/components/agents/pause-trading-button";
 import { PersistenceNotice } from "@/components/shared/persistence-notice";
+import { combineEquitySeries } from "@/lib/charts/equity";
 import type { MomentumAlphaView } from "@/lib/agent/view";
 import type { LeaderboardAgent } from "@/types/arena";
 
@@ -15,6 +16,7 @@ export function ArenaDashboard({
   live,
   summary,
   persistenceMode,
+  paused,
 }: {
   books: MomentumAlphaView[];
   roster: LeaderboardAgent[];
@@ -27,6 +29,7 @@ export function ArenaDashboard({
     returnPercent: number;
   };
   persistenceMode: "memory" | "supabase";
+  paused: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -38,8 +41,8 @@ export function ArenaDashboard({
           returnPercent={summary.returnPercent}
           startingCapital={summary.startingCapital}
           currentEquity={summary.totalEquity}
-          series={live.equitySeries}
-          action={<PauseTradingButton status={live.agent.status} agentId={live.agent.id} compact />}
+          series={combineEquitySeries(books)}
+          action={<PauseTradingButton status={paused ? "PAUSED" : "ACTIVE"} compact />}
         />
         <AgentAllocationCard books={books} />
         <LatestDecisionCard decision={live.decisions[0] ?? null} />
@@ -48,7 +51,7 @@ export function ArenaDashboard({
         </div>
         <RiskOverviewCard live={live} />
         <div className="h-full md:col-span-2">
-          <AgentActivityCard events={live.events} />
+          <AgentActivityCard books={books} />
         </div>
       </div>
       <PersistenceNotice mode={persistenceMode} />

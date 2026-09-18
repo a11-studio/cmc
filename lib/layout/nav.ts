@@ -18,6 +18,12 @@ export const PRIMARY_NAV = [
     iconSrc: "/nav/activity.svg",
   },
   {
+    href: "/chat",
+    label: "Chat",
+    match: "chat",
+    iconSrc: "/nav/chat.svg",
+  },
+  {
     href: "/settings",
     label: "Settings",
     match: "settings",

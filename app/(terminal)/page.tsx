@@ -13,6 +13,7 @@ export default async function ArenaPage() {
       live={dashboard.live}
       summary={dashboard.summary}
       persistenceMode={dashboard.persistenceMode}
+      paused={dashboard.paused}
     />
   );
 }
