@@ -126,23 +126,23 @@ describe("Risk Engine constraints", () => {
     expect(result.reason).toMatch(/reduced from 20% to 15%/);
   });
 
-  it("constrains a BUY that would exceed the 20% max position", () => {
+  it("allows a BUY that adds to a 20% position when trade size is inside the 15% cap", () => {
     const result = evaluateRisk(
       input({
         decision: decision({ allocationPercent: 15 }),
         portfolio: portfolio({
-          cash: 8_200,
+          cash: 8_000,
           equity: 10_000,
-          positions: [{ symbol: "ETH", quantity: 4, marketValue: 1_800, allocationPercent: 18 }],
+          positions: [{ symbol: "ETH", quantity: 8, marketValue: 2_000, allocationPercent: 20 }],
         }),
       })
     );
 
-    expect(result.verdict).toBe("CONSTRAINED");
-    expect(result.adjustedAllocationPercent).toBeCloseTo(2, 8);
+    expect(result.verdict).toBe("APPROVED");
+    expect(result.adjustedAllocationPercent).toBe(15);
   });
 
-  it("constrains a BUY that would drop cash below 10%", () => {
+  it("constrains a BUY that would spend more than remaining cash", () => {
     const result = evaluateRisk(
       input({
         decision: decision({ allocationPercent: 15 }),
@@ -155,7 +155,8 @@ describe("Risk Engine constraints", () => {
     );
 
     expect(result.verdict).toBe("CONSTRAINED");
-    expect(result.adjustedAllocationPercent).toBeCloseTo(2, 8);
+    expect(result.adjustedAllocationPercent).toBeCloseTo(12, 8);
+    expect(result.reason).toMatch(/require leverage/);
   });
 
   it("constrains a full SELL of an 18% position so the trade stays within 15% of equity", () => {
@@ -182,7 +183,7 @@ describe("Risk Engine constraints", () => {
     expect(result.allowedDecision?.allocationPercent).toBe(15);
   });
 
-  it("constrains adding to an 18% short so the abs position stays at 20%", () => {
+  it("allows adding to an 18% short up to the 15% max trade", () => {
     const result = evaluateRisk(
       input({
         decision: decision({ action: "SHORT", symbol: "ETH", allocationPercent: 15 }),
@@ -194,8 +195,8 @@ describe("Risk Engine constraints", () => {
       })
     );
 
-    expect(result.verdict).toBe("CONSTRAINED");
-    expect(result.adjustedAllocationPercent).toBeCloseTo(2, 8);
+    expect(result.verdict).toBe("APPROVED");
+    expect(result.adjustedAllocationPercent).toBe(15);
   });
 });
 
@@ -222,14 +223,14 @@ describe("Risk Engine blocks", () => {
     expect(result.code).toBe("INVALID_ALLOCATION");
   });
 
-  it("blocks a BUY that cannot fit without exceeding max position", () => {
+  it("blocks a BUY when the book is already fully in that symbol", () => {
     const result = evaluateRisk(
       input({
         decision: decision({ allocationPercent: 10 }),
         portfolio: portfolio({
-          cash: 8_000,
+          cash: 0,
           equity: 10_000,
-          positions: [{ symbol: "ETH", quantity: 8, marketValue: 2_000, allocationPercent: 20 }],
+          positions: [{ symbol: "ETH", quantity: 40, marketValue: 10_000, allocationPercent: 100 }],
         }),
       })
     );
@@ -238,10 +239,26 @@ describe("Risk Engine blocks", () => {
     expect(result.reason).toBe("Rejected: maximum position size exceeded");
   });
 
-  it("blocks a BUY when cash is already at the 10% floor", () => {
+  it("constrains a SHORT that would exceed 100% of equity in one symbol", () => {
     const result = evaluateRisk(
       input({
-        decision: decision({ allocationPercent: 5 }),
+        decision: decision({ action: "SHORT", symbol: "ETH", allocationPercent: 15 }),
+        portfolio: portfolio({
+          cash: 19_200,
+          equity: 10_000,
+          positions: [{ symbol: "ETH", quantity: -3.68, marketValue: -9_200, allocationPercent: -92 }],
+        }),
+      })
+    );
+
+    expect(result.verdict).toBe("CONSTRAINED");
+    expect(result.adjustedAllocationPercent).toBeCloseTo(8, 8);
+  });
+
+  it("allows a BUY that spends the last cash into a concentrated long", () => {
+    const result = evaluateRisk(
+      input({
+        decision: decision({ allocationPercent: 10 }),
         portfolio: portfolio({
           cash: 1_000,
           equity: 10_000,
@@ -250,8 +267,27 @@ describe("Risk Engine blocks", () => {
       })
     );
 
+    expect(result.verdict).toBe("APPROVED");
+    expect(result.adjustedAllocationPercent).toBe(10);
+  });
+
+  it("blocks a BUY when there is no cash left", () => {
+    const result = evaluateRisk(
+      input({
+        decision: decision({ allocationPercent: 5 }),
+        portfolio: portfolio({
+          cash: 0,
+          equity: 10_000,
+          positions: [
+            { symbol: "BTC", quantity: 0.04, marketValue: 4_000, allocationPercent: 40 },
+            { symbol: "ETH", quantity: 2.4, marketValue: 6_000, allocationPercent: 60 },
+          ],
+        }),
+      })
+    );
+
     expect(result.verdict).toBe("BLOCKED");
-    expect(result.reason).toBe("Rejected: minimum cash would be breached");
+    expect(result.reason).toBe("Rejected: leverage is not allowed");
   });
 
   it("blocks opening a new position when max open positions is reached", () => {
@@ -394,7 +430,7 @@ describe("Risk Engine blocks", () => {
     expect(result.code).toBe("MISSING_PRICE");
   });
 
-  it("blocks spending more cash than the book has (no leverage)", () => {
+  it("constrains a BUY to remaining cash instead of allowing leverage", () => {
     const result = evaluateRisk(
       input({
         decision: decision({ allocationPercent: 15 }),
@@ -406,8 +442,9 @@ describe("Risk Engine blocks", () => {
       })
     );
 
-    expect(result.verdict).toBe("BLOCKED");
-    expect(result.executable).toBe(false);
+    expect(result.verdict).toBe("CONSTRAINED");
+    expect(result.executable).toBe(true);
+    expect(result.adjustedAllocationPercent).toBeCloseTo(4, 8);
   });
 });
 

@@ -34,6 +34,8 @@ export function buildAgentRoster(liveAgents: LeaderboardAgent | readonly Leaderb
       winRatePercent: 0,
       trades: 0,
       initialCapital: definition.initialCapital,
+      cash: definition.initialCapital,
+      coins: 0,
       dataSource: definition.status === "LIVE" ? "live" : "roster",
       runtimeStatus: definition.status,
     };

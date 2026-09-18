@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ARENA_LIVE_REFRESH_EVENT } from "@/lib/arena/live-events";
 
 const REALTIME_TABLES = ["activity_events", "portfolio_snapshots", "trades", "agents"] as const;
 
@@ -20,6 +21,7 @@ export function LiveRefresh() {
     const refresh = () => {
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => {
+        window.dispatchEvent(new Event(ARENA_LIVE_REFRESH_EVENT));
         router.refresh();
       }, 200);
     };

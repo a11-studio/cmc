@@ -19,9 +19,6 @@ export const metadata = {
   title: "Decision",
 };
 
-const liveSteps = ["ANALYZING", "DECISION", "RISK CHECK", "EXECUTION"] as const;
-const sampleSteps = ["Market", "Signal", "Decision", "Risk", "Execution"] as const;
-
 export default async function DecisionPage({
   params,
 }: {
@@ -35,7 +32,6 @@ export default async function DecisionPage({
   }
 
   const live = decision.dataSource === "live";
-  const steps = live ? liveSteps : sampleSteps;
 
   return (
     <div className="space-y-6">
@@ -103,18 +99,6 @@ export default async function DecisionPage({
           <span className="text-xs tabular-nums text-tertiary">{decision.cycleId}</span>
         ) : null}
       </div>
-
-      <ol className="grid gap-2 sm:grid-cols-4 lg:grid-cols-5">
-        {steps.map((step, index) => (
-          <li
-            key={step}
-            className="rounded-lg border border-border bg-surface-1 px-3 py-2"
-          >
-            <p className="text-[11px] tabular-nums text-faint">0{index + 1}</p>
-            <p className="mt-1 text-sm text-foreground">{step}</p>
-          </li>
-        ))}
-      </ol>
 
       <Tabs defaultValue="overview" className="gap-4">
         <TabsList variant="line" className="w-full justify-start">

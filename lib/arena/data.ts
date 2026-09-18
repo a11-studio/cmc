@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import {
   getAgentStore,
@@ -41,42 +42,38 @@ export async function setLiveAgentTradingStatus(agentId: string, status: "ACTIVE
 
 export async function getLastCycleCompletedAt(): Promise<string | null> {
   try {
-    const stamps = await Promise.all(
-      listLiveAgents().map(async (agent) => latestCycleCompletedAt((await getAgentStore(agent.id)).listCycles()))
-    );
-    const times = stamps
-      .filter((value): value is string => Boolean(value))
-      .map((value) => Date.parse(value))
-      .filter((value) => Number.isFinite(value));
-
-    if (times.length === 0) {
-      return null;
-    }
-
-    return new Date(Math.max(...times)).toISOString();
+    return (await getArenaCycleControl()).lastCompletedAt;
   } catch {
     return null;
   }
 }
 
-export async function getArenaCycleControl() {
-  const books = await getLiveAgentViews();
-  const statuses = books.map((book) => book.agent.status);
+export const getArenaCycleControl = cache(async () => {
+  try {
+    const stores = await Promise.all(listLiveAgents().map((agent) => getAgentStore(agent.id)));
+    const statuses = stores.map((store) => store.getAgentStatus());
 
-  return {
-    lastCompletedAt: latestCycleCompletedAt(books.flatMap((book) => book.cycles)),
-    autoRun: statuses.some((status) => status === "ACTIVE"),
-    paused: statuses.length > 0 && statuses.every((status) => status === "PAUSED"),
-  };
-}
+    return {
+      lastCompletedAt: latestCycleCompletedAt(stores.flatMap((store) => store.listCycles())),
+      autoRun: statuses.some((status) => status === "ACTIVE"),
+      paused: statuses.length > 0 && statuses.every((status) => status === "PAUSED"),
+    };
+  } catch {
+    return {
+      lastCompletedAt: null,
+      autoRun: false,
+      paused: false,
+    };
+  }
+});
 
-export async function getLiveAgentView(agentId: string): Promise<MomentumAlphaView> {
+export const getLiveAgentView = cache(async (agentId: string): Promise<MomentumAlphaView> => {
   return buildAgentView(await getAgentStore(agentId), agentId);
-}
+});
 
-export async function getLiveAgentViews(): Promise<MomentumAlphaView[]> {
+export const getLiveAgentViews = cache(async (): Promise<MomentumAlphaView[]> => {
   return Promise.all(listLiveAgents().map((agent) => getLiveAgentView(agent.id)));
-}
+});
 
 export async function getMomentumAlphaView(): Promise<MomentumAlphaView> {
   return buildMomentumAlphaView(await getMomentumAlphaStore());
@@ -111,7 +108,7 @@ export async function getArenaDashboard() {
   const agents = books.map((book) => book.agent);
   const live = books.find((book) => book.agent.id === MOMENTUM_ALPHA_AGENT.id) ?? books[0]!;
   const decisions = [...books.flatMap((book) => book.decisions)].sort(
-    (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)
+    (left, right) => Date.parse(right.createdAt ?? "") - Date.parse(left.createdAt ?? "")
   );
 
   return {
@@ -145,7 +142,8 @@ export async function getLiveOrSampleDecision(id: string): Promise<DecisionRecor
     }
   }
 
-  return undefined;
+  const { getDecision } = await import("@/lib/sample");
+  return getDecision(id);
 }
 
 export function getArenaPersistenceMode() {
@@ -169,5 +167,7 @@ export async function executeLiveAgentCycles() {
     results.find((result) => result.status.startsWith("FAILED")) ??
     results.at(-1);
 
-  return preferred ? serializeTriggerResult(preferred) : { ok: false, enabled: true, message: "No live agents." };
+  return preferred
+    ? serializeTriggerResult(preferred)
+    : { ok: false, enabled: true, message: "No live agents.", cycleId: undefined };
 }

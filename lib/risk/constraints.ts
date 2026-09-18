@@ -1,7 +1,7 @@
 export const DEFAULT_RISK_CONSTRAINTS = {
-  maxPositionPercent: 20,
+  maxPositionPercent: 100,
   maxTradePercent: 15,
-  minCashPercent: 10,
+  minCashPercent: 0,
   maxDailyLossPercent: 5,
   maxDrawdownPercent: 15,
   maxOpenPositions: 3,

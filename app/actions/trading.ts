@@ -20,7 +20,7 @@ export async function setMomentumAlphaTradingAction(
   const intent = formData.get("intent");
   const agentId = String(formData.get("agentId") ?? "").trim() || MOMENTUM_ALPHA_AGENT.id;
   const nextStatus = intent === "resume" ? "ACTIVE" : "PAUSED";
-  const status = await setLiveAgentTradingStatus(agentId, nextStatus);
+  await setLiveAgentTradingStatus(agentId, nextStatus);
 
   revalidatePath("/", "layout");
   revalidatePath("/");
@@ -32,7 +32,7 @@ export async function setMomentumAlphaTradingAction(
 
   return {
     ok: true,
-    status,
-    message: status === "PAUSED" ? "Trading paused. Cycles will not open new trades." : "Trading resumed.",
+    status: nextStatus,
+    message: nextStatus === "PAUSED" ? "Trading paused. Cycles will not open new trades." : "Trading resumed.",
   };
 }

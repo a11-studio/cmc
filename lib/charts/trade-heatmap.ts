@@ -1,6 +1,6 @@
 import type { TradeCheck } from "@/lib/agent/trade-outcomes";
 
-export type TradeCheckTone = "win" | "loss" | "pending";
+export type TradeCheckTone = "win" | "loss" | "pending" | "hold" | "blocked";
 
 export type TradeCheckGroup = {
   date: string;
@@ -16,20 +16,28 @@ export function localDateKey(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-export function tradeCheckTone(win: boolean | null): TradeCheckTone {
-  if (win === true) {
+export function tradeCheckTone(check: Pick<TradeCheck, "kind" | "win">): TradeCheckTone {
+  if (check.kind === "hold") {
+    return "hold";
+  }
+
+  if (check.kind === "blocked") {
+    return "blocked";
+  }
+
+  if (check.win === true) {
     return "win";
   }
 
-  if (win === false) {
+  if (check.win === false) {
     return "loss";
   }
 
   return "pending";
 }
 
-export function tradeCheckMovePercent(fillPrice: number, checkPrice: number | null): number | null {
-  if (checkPrice == null || !(fillPrice > 0)) {
+export function tradeCheckMovePercent(fillPrice: number | null, checkPrice: number | null): number | null {
+  if (checkPrice == null || fillPrice == null || !(fillPrice > 0)) {
     return null;
   }
 

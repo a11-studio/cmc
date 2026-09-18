@@ -26,6 +26,17 @@ function arenaStatus(agent: LeaderboardAgent) {
   return { label: "READY", className: "text-[#00D4CF]" };
 }
 
+function BookSplit({ amount, book }: { amount: number; book: number }) {
+  const percent = book > 0 ? (Math.abs(amount) / book) * 100 : 0;
+
+  return (
+    <div className="text-right">
+      <p className="tabular-nums">{formatUsd(amount)}</p>
+      <p className="text-[11px] tabular-nums text-white/40">{percent.toFixed(0)}%</p>
+    </div>
+  );
+}
+
 export function AgentsTableCard({ agents }: { agents: LeaderboardAgent[] }) {
   const ranked = [...agents].sort((left, right) => {
     const leftLive = left.runtimeStatus === "LIVE" || left.dataSource === "live";
@@ -43,12 +54,14 @@ export function AgentsTableCard({ agents }: { agents: LeaderboardAgent[] }) {
       <DashboardCardTitle>Agents {agents.length}</DashboardCardTitle>
 
       <div className="mt-6 overflow-x-auto">
-        <table className="w-full min-w-[720px] border-separate border-spacing-0 text-left text-sm">
+        <table className="w-full min-w-[880px] border-separate border-spacing-0 text-left text-sm">
           <thead>
             <tr className="text-[12px] text-white/40">
               <th className="pb-3 font-medium">Agent</th>
               <th className="pb-3 font-medium">Strategy</th>
               <th className="pb-3 text-right font-medium">Equity</th>
+              <th className="pb-3 text-right font-medium">Coins</th>
+              <th className="pb-3 text-right font-medium">Cash</th>
               <th className="pb-3 text-right font-medium">Return</th>
               <th className="pb-3 text-right font-medium">Drawdown</th>
               <th className="pb-3 text-right font-medium">Status</th>
@@ -58,6 +71,7 @@ export function AgentsTableCard({ agents }: { agents: LeaderboardAgent[] }) {
             {ranked.map((agent) => {
               const status = arenaStatus(agent);
               const live = agent.runtimeStatus === "LIVE" || agent.dataSource === "live";
+              const book = Math.abs(agent.coins) + Math.abs(agent.cash);
 
               return (
                 <tr key={agent.id} className="border-t border-white/6">
@@ -70,6 +84,12 @@ export function AgentsTableCard({ agents }: { agents: LeaderboardAgent[] }) {
                   <td className="border-t border-white/6 py-2.5 pr-4 text-white/55">{agent.strategy}</td>
                   <td className="border-t border-white/6 py-2.5 pr-4 text-right tabular-nums">
                     {live ? formatUsd(agent.equity) : "—"}
+                  </td>
+                  <td className="border-t border-white/6 py-2.5 pr-4">
+                    {live ? <BookSplit amount={agent.coins} book={book} /> : <p className="text-right">—</p>}
+                  </td>
+                  <td className="border-t border-white/6 py-2.5 pr-4">
+                    {live ? <BookSplit amount={agent.cash} book={book} /> : <p className="text-right">—</p>}
                   </td>
                   <td className="border-t border-white/6 py-2.5 pr-4 text-right">
                     {live ? <SignedPercent value={agent.returnPercent} digits={1} /> : "—"}

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { DataSourceBadge } from "@/components/shared/data-source-badge";
 import { AssetTicker } from "@/components/market/asset-icon";
 import { formatUsd } from "@/lib/format";
+import { EmptyState } from "@/components/shared/empty-state";
 import type { SerializedCycle } from "@/lib/agent/view";
+import { cn } from "@/lib/utils";
 
 function statusLabel(cycle: SerializedCycle): string {
   if (cycle.status === "COMPLETED") {
@@ -23,7 +25,10 @@ function statusLabel(cycle: SerializedCycle): string {
 export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
   if (cycles.length === 0) {
     return (
-      <p className="text-sm text-tertiary">No cycles yet. Run Cycle to generate the first decision.</p>
+      <EmptyState
+        title="No cycles yet."
+        description="Run Cycle or wait for the next 15-minute slot. Duplicate slots are skipped."
+      />
     );
   }
 
@@ -37,7 +42,16 @@ export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
               <span className="text-sm font-medium text-foreground">{cycle.strategy}</span>
               <span className="text-xs tabular-nums text-tertiary">{cycle.cycleId}</span>
             </div>
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            <span
+              className={cn(
+                "text-xs font-medium tracking-wide uppercase",
+                cycle.status.startsWith("FAILED")
+                  ? "text-negative"
+                  : cycle.status === "BLOCKED"
+                    ? "text-warning"
+                    : "text-muted-foreground"
+              )}
+            >
               {statusLabel(cycle)}
             </span>
           </div>
@@ -94,7 +108,7 @@ export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
               href={`/decisions/${encodeURIComponent(cycle.cycleId)}`}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
-              View cycle
+              View decision
             </Link>
           </div>
         </li>

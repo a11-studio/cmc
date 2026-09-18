@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scoreTradeCheck, scoreTradesAgainstNextCheck } from "@/lib/agent/trade-outcomes";
+import { scoreBookTradeChecks, scoreTradeCheck, scoreTradesAgainstNextCheck } from "@/lib/agent/trade-outcomes";
 import type { AgentCycleResult } from "@/lib/agent/types";
 import type { Trade } from "@/lib/paper/types";
 
@@ -121,7 +121,54 @@ describe("scoreTradesAgainstNextCheck", () => {
         win: null,
         checkPrice: null,
         checkedAt: null,
+        kind: "fill",
       }),
     ]);
+  });
+});
+
+describe("scoreBookTradeChecks", () => {
+  it("keeps fills and adds HOLD and blocked decisions that never filled", () => {
+    const hold = cycle("c-hold", "2026-09-18T08:15:00.000Z", 101);
+    hold.decision = {
+      action: "HOLD",
+      symbol: "SOL",
+      allocationPercent: 0,
+      confidence: 40,
+      timeHorizon: "MEDIUM",
+      reasons: ["No breakout"],
+      riskFactors: [],
+    };
+
+    const blocked = cycle("c-block", "2026-09-18T08:30:00.000Z", 102);
+    blocked.status = "BLOCKED";
+    blocked.decision = {
+      action: "BUY",
+      symbol: "SOL",
+      allocationPercent: 5,
+      confidence: 75,
+      timeHorizon: "MEDIUM",
+      reasons: ["Breakout"],
+      riskFactors: [],
+    };
+    blocked.riskResult = {
+      verdict: "BLOCKED",
+      approved: false,
+      executable: false,
+      code: "MAX_POSITION_EXCEEDED",
+      reason: "Rejected: maximum position size exceeded",
+      decision: blocked.decision,
+      checks: [],
+    };
+
+    const checks = scoreBookTradeChecks(
+      [trade({ cycleId: "c1", price: 100, createdAt: "2026-09-18T08:00:00.000Z" })],
+      [cycle("c1", "2026-09-18T08:00:00.000Z", 100), hold, blocked]
+    );
+
+    expect(checks.map((item) => item.kind)).toEqual(["fill", "hold", "blocked"]);
+    expect(checks[0]?.win).toBe(true);
+    expect(checks[1]).toMatchObject({ side: "HOLD", fillPrice: null, kind: "hold" });
+    expect(checks[2]).toMatchObject({ side: "BUY", fillPrice: null, kind: "blocked" });
   });
 });

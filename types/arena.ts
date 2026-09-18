@@ -72,6 +72,8 @@ export type LeaderboardAgent = {
   winRatePercent: number;
   trades: number;
   initialCapital: number;
+  cash: number;
+  coins: number;
   dataSource: DataSource;
   runtimeStatus?: AgentRuntimeStatus;
 };
@@ -139,4 +141,5 @@ export type DecisionRecord = {
   resultingEquity?: number;
   resultingQuantity?: number;
   failureMessage?: string;
+  events?: ActivityEvent[];
 };

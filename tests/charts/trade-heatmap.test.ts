@@ -17,6 +17,7 @@ function check(overrides: Partial<TradeCheck>): TradeCheck {
     createdAt: "2026-09-18T08:00:00.000Z",
     checkedAt: "2026-09-18T08:15:00.000Z",
     win: true,
+    kind: "fill",
     ...overrides,
   };
 }
@@ -43,9 +44,11 @@ describe("trade check strip", () => {
   });
 
   it("maps next-check outcomes to strip tones", () => {
-    expect(tradeCheckTone(true)).toBe("win");
-    expect(tradeCheckTone(false)).toBe("loss");
-    expect(tradeCheckTone(null)).toBe("pending");
+    expect(tradeCheckTone(check({ win: true }))).toBe("win");
+    expect(tradeCheckTone(check({ win: false }))).toBe("loss");
+    expect(tradeCheckTone(check({ win: null }))).toBe("pending");
+    expect(tradeCheckTone(check({ kind: "hold", win: null, fillPrice: null }))).toBe("hold");
+    expect(tradeCheckTone(check({ kind: "blocked", win: null, fillPrice: null }))).toBe("blocked");
     expect(tradeCheckMovePercent(100, 104)).toBeCloseTo(4);
     expect(tradeCheckMovePercent(100, null)).toBeNull();
   });

@@ -181,8 +181,27 @@
   }
 }
 
+@keyframes arena-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-arena-enter {
+  animation: arena-enter 220ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-ticker {
+    animation: none;
+  }
+
+  .animate-arena-enter {
     animation: none;
   }
 }

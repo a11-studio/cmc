@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { marketQuotes } from "@/lib/mock-data";
 import { createMarketDataProvider } from "@/lib/market/provider";
 import { snapshotToTickers } from "@/lib/market/tickers";
@@ -12,7 +14,16 @@ export type ShellMarket = {
   source: MarketSource;
 };
 
-export async function getShellMarket(): Promise<ShellMarket> {
+const getCachedLiveQuotes = unstable_cache(
+  async () => {
+    const snapshot = await createMarketDataProvider().getMarketSnapshot([...SUPPORTED_SYMBOLS]);
+    return snapshotToTickers(snapshot);
+  },
+  ["shell-market-quotes"],
+  { revalidate: 30 }
+);
+
+export const getShellMarket = cache(async (): Promise<ShellMarket> => {
   if (!hasServerEnv("CMC_API_KEY")) {
     return {
       source: "sample",
@@ -25,11 +36,9 @@ export async function getShellMarket(): Promise<ShellMarket> {
   }
 
   try {
-    const snapshot = await createMarketDataProvider().getMarketSnapshot([...SUPPORTED_SYMBOLS]);
-
     return {
       source: "live",
-      quotes: snapshotToTickers(snapshot),
+      quotes: await getCachedLiveQuotes(),
     };
   } catch {
     return {
@@ -37,4 +46,4 @@ export async function getShellMarket(): Promise<ShellMarket> {
       quotes: SUPPORTED_SYMBOLS.map((symbol) => ({ symbol })),
     };
   }
-}
+});

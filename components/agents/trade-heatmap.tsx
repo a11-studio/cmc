@@ -18,24 +18,52 @@ import { cn } from "@/lib/utils";
 const TONE: Record<TradeCheckTone, string> = {
   win: "#22C55E",
   loss: "#F87171",
-  pending: "#171717",
+  pending: "transparent",
+  hold: "transparent",
+  blocked: "transparent",
 };
 
-function outcomeLabel(win: boolean | null) {
-  if (win === true) {
+function outcomeLabel(check: TradeCheck) {
+  const tone = tradeCheckTone(check);
+
+  if (tone === "win") {
     return "Confirmed";
   }
 
-  if (win === false) {
+  if (tone === "loss") {
     return "Against";
+  }
+
+  if (tone === "hold") {
+    return "HOLD · no fill";
+  }
+
+  if (tone === "blocked") {
+    return "Blocked";
   }
 
   return "Waiting for next 15m check";
 }
 
+function cellClassName(tone: TradeCheckTone) {
+  if (tone === "pending") {
+    return "border-white/40 bg-white/12";
+  }
+
+  if (tone === "hold") {
+    return "border-white/25 bg-white/6";
+  }
+
+  if (tone === "blocked") {
+    return "border-[#F59E0B]/70 bg-[#F59E0B]/20";
+  }
+
+  return "border-white/5";
+}
+
 function TradeCheckCell({ check }: { check: TradeCheck }) {
   const [open, setOpen] = useState(false);
-  const tone = tradeCheckTone(check.win);
+  const tone = tradeCheckTone(check);
   const move = tradeCheckMovePercent(check.fillPrice, check.checkPrice);
 
   return (
@@ -43,9 +71,9 @@ function TradeCheckCell({ check }: { check: TradeCheck }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label={`${check.side} ${check.symbol} ${outcomeLabel(check.win)}`}
-          className="size-3.5 rounded-[3px] border border-white/5"
-          style={{ backgroundColor: TONE[tone] }}
+          aria-label={`${check.side} ${check.symbol} ${outcomeLabel(check)}`}
+          className={cn("size-3.5 rounded-[3px] border", cellClassName(tone))}
+          style={TONE[tone] === "transparent" ? undefined : { backgroundColor: TONE[tone] }}
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => setOpen(false)}
           onFocus={() => setOpen(true)}
@@ -61,18 +89,26 @@ function TradeCheckCell({ check }: { check: TradeCheck }) {
         <p className="mt-1 text-sm font-medium text-foreground">
           {check.side} <TickerPhrase text={check.symbol} size="xs" />
         </p>
-        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-          {formatUsd(check.fillPrice)}
-          {check.checkPrice != null ? ` → ${formatUsd(check.checkPrice)}` : ""}
-        </p>
+        {check.fillPrice != null ? (
+          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+            {formatUsd(check.fillPrice)}
+            {check.checkPrice != null ? ` → ${formatUsd(check.checkPrice)}` : ""}
+          </p>
+        ) : null}
         {move != null ? <SignedPercent value={move} className="mt-0.5 block text-xs" digits={2} /> : null}
         <p
           className={cn(
             "mt-1 text-[11px]",
-            tone === "win" ? "text-positive" : tone === "loss" ? "text-negative" : "text-tertiary"
+            tone === "win"
+              ? "text-positive"
+              : tone === "loss"
+                ? "text-negative"
+                : tone === "blocked"
+                  ? "text-warning"
+                  : "text-tertiary"
           )}
         >
-          {outcomeLabel(check.win)}
+          {outcomeLabel(check)}
         </p>
       </TooltipContent>
     </Tooltip>
@@ -81,15 +117,17 @@ function TradeCheckCell({ check }: { check: TradeCheck }) {
 
 export function TradeHeatmap({
   checks,
-  emptyLabel = "Squares appear after a fill. Color waits for the next 15-minute check.",
+  emptyLabel = "Squares appear after a cycle. Color waits for the next 15-minute check.",
 }: {
   checks: TradeCheck[];
   emptyLabel?: string;
 }) {
   const groups = useMemo(() => groupTradeChecksByDay(checks), [checks]);
-  const confirmed = checks.filter((check) => check.win === true).length;
-  const against = checks.filter((check) => check.win === false).length;
-  const pending = checks.filter((check) => check.win == null).length;
+  const confirmed = checks.filter((check) => tradeCheckTone(check) === "win").length;
+  const against = checks.filter((check) => tradeCheckTone(check) === "loss").length;
+  const pending = checks.filter((check) => tradeCheckTone(check) === "pending").length;
+  const held = checks.filter((check) => tradeCheckTone(check) === "hold").length;
+  const blocked = checks.filter((check) => tradeCheckTone(check) === "blocked").length;
 
   return (
     <Card className="overflow-visible">
@@ -98,7 +136,8 @@ export function TradeHeatmap({
           Trade checks
         </CardTitle>
         <p className="mt-2 text-sm text-white/45">
-          One square per fill. Green confirmed the side at the next 15-minute check, red moved against it.
+          One square per decision. Green confirmed the side at the next 15-minute check, red moved against
+          it. Hollow squares are still waiting. HOLD and blocked attempts count too.
         </p>
       </CardHeader>
       <CardContent className="pt-4">
@@ -122,17 +161,19 @@ export function TradeHeatmap({
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/40">
           {checks.length > 0 ? (
             <p>
-              {confirmed} confirmed · {against} against
+              {checks.length} decisions · {confirmed} confirmed · {against} against
               {pending ? ` · ${pending} pending` : ""}
+              {held ? ` · ${held} hold` : ""}
+              {blocked ? ` · ${blocked} blocked` : ""}
             </p>
           ) : (
             <span />
           )}
           <p className="flex items-center gap-[3px]">
             Against
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: TONE.loss }} />
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: TONE.pending }} />
-            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: TONE.win }} />
+            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: "#F87171" }} />
+            <span className="size-[11px] rounded-[2px] border border-white/40 bg-white/12" />
+            <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: "#22C55E" }} />
             Confirmed
           </p>
         </div>

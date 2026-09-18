@@ -26,6 +26,7 @@ import type { LeaderboardAgent } from "@/types/arena";
 
 const REQUIRED_SKILL_HEADINGS = [
   "## Identity",
+  "## Personality",
   "## Philosophy",
   "## Strategy",
   "## Market Conditions",
@@ -71,6 +72,8 @@ function liveAgent(): LeaderboardAgent {
     winRatePercent: 50,
     trades: 2,
     initialCapital: 10_000,
+    cash: 8_000,
+    coins: 2_042,
     dataSource: "live",
     runtimeStatus: "LIVE",
   };
@@ -118,6 +121,7 @@ describe("agent skill registry", () => {
       expect(skill).toContain("BTC / ETH / SOL / BNB / XRP");
       expect(skill).toContain("SHORT is allowed");
       expect(extractSkillSection(skill, "Goal").length).toBeGreaterThan(40);
+      expect(extractSkillSection(skill, "Personality").length).toBeGreaterThan(40);
       expect(extractSkillSection(skill, "Time Horizon").length).toBeGreaterThan(0);
     }
 
@@ -126,6 +130,12 @@ describe("agent skill registry", () => {
     expect(elonGoal).toMatch(/15-minute|1h/i);
     expect(dennisGoal).toMatch(/days to weeks/i);
     expect(elonGoal).not.toBe(dennisGoal);
+
+    const elonPersonality = extractSkillSection(loadAgentSkillFor("momentum-alpha"), "Personality");
+    const dennisPersonality = extractSkillSection(loadAgentSkillFor("richard-dennis"), "Personality");
+    expect(elonPersonality).toMatch(/impatient|conviction/i);
+    expect(dennisPersonality).toMatch(/rule|system/i);
+    expect(elonPersonality).not.toBe(dennisPersonality);
   });
 
   it("keeps Elon Musk and Richard Dennis LIVE", () => {

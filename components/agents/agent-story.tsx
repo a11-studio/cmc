@@ -43,6 +43,7 @@ export function AgentStatusWidgets({
 
 export function AgentStorySections({ agentId }: { agentId: string }) {
   const story = getAgentStory(agentId);
+  const personality = getAgentSkillSection(agentId, "Personality");
   const goal = getAgentSkillSection(agentId, "Goal");
 
   if (!story) {
@@ -51,6 +52,12 @@ export function AgentStorySections({ agentId }: { agentId: string }) {
 
   return (
     <div className="space-y-8">
+      {personality ? (
+        <section>
+          <h2 className="text-[19px] font-medium tracking-tight">Personality</h2>
+          <p className="mt-4 text-[15px] leading-7 text-white/60">{personality}</p>
+        </section>
+      ) : null}
       {goal ? (
         <section>
           <h2 className="text-[19px] font-medium tracking-tight">Goal</h2>

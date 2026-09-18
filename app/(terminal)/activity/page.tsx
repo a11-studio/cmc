@@ -4,6 +4,7 @@ import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { CycleResultList } from "@/components/activity/cycle-result-list";
 import { RunCycleButton } from "@/components/agents/run-cycle-button";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PersistenceNotice } from "@/components/shared/persistence-notice";
 import { getArenaPersistenceMode, getLiveAgentViews } from "@/lib/arena/data";
 import { isManualCycleEnabled } from "@/lib/agent/view";
@@ -43,9 +44,10 @@ export default async function ActivityPage() {
           <ActivityTimeline events={events} showAgent />
         </Card>
       ) : (
-        <Card className="px-5 py-6">
-          <p className="text-sm text-tertiary">No live activity yet.</p>
-        </Card>
+        <EmptyState
+          title="No live activity yet."
+          description="Cycles appear here after Elon or Dennis completes ANALYZING → DECISION → RISK CHECK → TRADE."
+        />
       )}
     </div>
   );

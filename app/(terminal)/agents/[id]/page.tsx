@@ -27,6 +27,7 @@ import {
 import { AssetTicker, CashTicker } from "@/components/market/asset-icon";
 import { formatNumber, formatUsd } from "@/lib/format";
 import { PersistenceNotice } from "@/components/shared/persistence-notice";
+import { EmptyState } from "@/components/shared/empty-state";
 import { isManualCycleEnabled } from "@/lib/agent/view";
 import { findAgentDefinition } from "@/lib/agents/registry";
 import { getArenaAgents, getArenaPersistenceMode, getLiveOrSampleBook } from "@/lib/arena/data";
@@ -235,7 +236,10 @@ export default async function AgentDetailPage({
 
         <TabsContent value="decisions" className="space-y-2">
           {decisions.length === 0 ? (
-            <p className="text-sm text-tertiary">No decisions recorded yet.</p>
+            <EmptyState
+              title="No decisions recorded yet."
+              description="The next cycle writes a TradeDecision here after Gemini returns a valid schema."
+            />
           ) : (
             decisions.map((decision) => (
               <Link
@@ -262,7 +266,10 @@ export default async function AgentDetailPage({
               <ActivityTimeline events={events} />
             </Card>
           ) : (
-            <p className="text-sm text-tertiary">No activity recorded yet.</p>
+            <EmptyState
+              title="No activity recorded yet."
+              description="Timeline events appear after this agent completes a cycle."
+            />
           )}
         </TabsContent>
       </Tabs>
@@ -276,7 +283,12 @@ function PositionTable({
   positions: PositionRow[];
 }) {
   if (positions.length === 0) {
-    return <p className="text-sm text-tertiary">No open positions.</p>;
+    return (
+      <EmptyState
+        title="No open positions."
+        description="This book is all cash until a BUY or SHORT is approved and filled."
+      />
+    );
   }
 
   return (
@@ -327,7 +339,12 @@ function PositionTable({
 
 function TradeTable({ trades }: { trades: TradeRow[] }) {
   if (trades.length === 0) {
-    return <p className="text-sm text-tertiary">No trades recorded yet.</p>;
+    return (
+      <EmptyState
+        title="No trades recorded yet."
+        description="Fills show up after Risk approves a decision and the Paper Engine executes it."
+      />
+    );
   }
 
   return (

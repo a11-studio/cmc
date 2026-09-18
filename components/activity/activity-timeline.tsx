@@ -33,10 +33,12 @@ export function ActivityTimeline({
   events: ActivityEvent[];
   showAgent?: boolean;
 }) {
+  const ordered = [...events].reverse();
+
   return (
     <ol className="space-y-0">
-      {events.map((event, index) => (
-        <li key={event.id} className="grid grid-cols-[72px_16px_1fr] gap-3 py-3">
+      {ordered.map((event, index) => (
+        <li key={event.id} className="animate-arena-enter grid grid-cols-[72px_16px_1fr] gap-3 py-3">
           <time
             dateTime={event.createdAt}
             suppressHydrationWarning
@@ -52,7 +54,7 @@ export function ActivityTimeline({
                 event.type === "ANALYZING" && "animate-pulse"
               )}
             />
-            {index < events.length - 1 ? (
+            {index < ordered.length - 1 ? (
               <span className="absolute top-4 bottom-[-12px] w-px bg-border-subtle" />
             ) : null}
           </div>

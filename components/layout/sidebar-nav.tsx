@@ -19,6 +19,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             <li key={item.href}>
               <Link
                 href={item.href}
+                prefetch
                 onClick={onNavigate}
                 className={cn(
                   "flex h-10 items-center gap-3 rounded-[12px] px-3 text-sm transition-colors",

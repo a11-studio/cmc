@@ -7,11 +7,11 @@ export const MOMENTUM_ALPHA_STRATEGY = {
   riskProfile: "medium",
   assets: SUPPORTED_SYMBOLS,
   initialCapital: 10_000,
-  maxPositionPercent: 20,
+  maxPositionPercent: 100,
   maxTradePercent: 15,
   maxDailyLossPercent: 5,
   maxDrawdownPercent: 15,
-  minCashPercent: 10,
+  minCashPercent: 0,
   maxOpenPositions: 3,
   leverage: false,
   shorting: true,
@@ -108,11 +108,11 @@ Exactly one structured TradeDecision. No hidden reasoning. No chain-of-thought.
 STRATEGY PROFILE:
 - Assets: ${SUPPORTED_SYMBOLS.join(", ")}
 - Risk: ${MOMENTUM_ALPHA_STRATEGY.riskProfile}
-- Preferred max position: ${MOMENTUM_ALPHA_STRATEGY.maxPositionPercent}% of equity
-- Preferred max trade: ${MOMENTUM_ALPHA_STRATEGY.maxTradePercent}% of equity
+- No per-symbol position cap. A book may concentrate fully in one asset.
+- Preferred max trade: ${MOMENTUM_ALPHA_STRATEGY.maxTradePercent}% of equity per decision
 - Preferred max daily loss: ${MOMENTUM_ALPHA_STRATEGY.maxDailyLossPercent}%
 - Preferred max drawdown: ${MOMENTUM_ALPHA_STRATEGY.maxDrawdownPercent}%
-- Preferred minimum cash: ${MOMENTUM_ALPHA_STRATEGY.minCashPercent}%
+- No cash floor. The book may go to 100% invested.
 - Preferred max open positions: ${MOMENTUM_ALPHA_STRATEGY.maxOpenPositions}
 - No leverage
 - Shorting is allowed via SHORT. SELL cannot create a short.

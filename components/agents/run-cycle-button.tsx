@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { runMomentumAlphaCycleAction, type ManualCycleState } from "@/app/actions/cycle";
 import { Button } from "@/components/ui/button";
+import { ARENA_LIVE_REFRESH_EVENT } from "@/lib/arena/live-events";
 
 export function RunCycleButton({ compact = false, agentId }: { compact?: boolean; agentId?: string }) {
   const router = useRouter();
@@ -15,6 +16,7 @@ export function RunCycleButton({ compact = false, agentId }: { compact?: boolean
 
   useEffect(() => {
     if (wasPending.current && !pending) {
+      window.dispatchEvent(new Event(ARENA_LIVE_REFRESH_EVENT));
       router.refresh();
     }
 

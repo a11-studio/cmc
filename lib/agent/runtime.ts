@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { createGeminiDecisionEngine } from "@/lib/ai/provider";
 import { runAgentCycle } from "@/lib/agent/cycle";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
@@ -70,16 +71,16 @@ function evaluationStoreFor(agentId: string, initialCapital: number): AgentCycle
   return store;
 }
 
-export async function getAgentStore(agentId: string): Promise<AgentCycleStore> {
+export const getAgentStore = cache(async (agentId: string): Promise<AgentCycleStore> => {
   return resolveStore(agentId);
-}
+});
 
 export async function getMomentumAlphaStore(): Promise<AgentCycleStore> {
   return getAgentStore(MOMENTUM_ALPHA_AGENT.id);
 }
 
 export async function setAgentTradingStatus(agentId: string, status: "ACTIVE" | "PAUSED") {
-  const store = await resolveStore(agentId);
+  const store = await getAgentStore(agentId);
   store.setAgentStatus(status);
 
   try {
@@ -103,7 +104,7 @@ export async function runLiveAgentCycle(
   const agent = toAgentIdentity(definition);
   const now = new Date();
   const cycleId = options?.cycleId ?? cycleIdForSlot(now, definition.id);
-  const store = await resolveStore(definition.id);
+  const store = await getAgentStore(definition.id);
 
   if (!(await claimAgentCycle(definition.id, cycleId, now))) {
     return skippedDuplicateFromStore(store, cycleId, now, definition.id);

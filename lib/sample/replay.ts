@@ -361,6 +361,8 @@ export function replaySampleAgent(definition: SampleAgentDefinition): AgentSampl
     winRatePercent: winRatePercent(account.trades.slice()),
     trades: account.trades.length,
     initialCapital: account.initialCapital,
+    cash: account.cash,
+    coins: positions.reduce((sum, position) => sum + Math.abs(position.marketValue), 0),
     dataSource: "sample",
   };
 

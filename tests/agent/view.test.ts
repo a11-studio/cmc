@@ -77,6 +77,8 @@ describe("Momentum Alpha view serialization", () => {
     expect(payload.agent.dataSource).toBe("live");
     expect(payload.agent.equity).toBe(10_000);
     expect(payload.agent.returnPercent).toBe(0);
+    expect(payload.agent.cash).toBe(10_000);
+    expect(payload.agent.coins).toBe(0);
     expect(payload.cash).toBe(10_000);
     expect(payload.positions).toEqual([]);
     expect(payload.trades).toEqual([]);
@@ -100,6 +102,8 @@ describe("Momentum Alpha view serialization", () => {
 
     expect(view.agent.equity).toBe(result.valuation?.portfolio.equity);
     expect(view.cash).toBeCloseTo(9_000, 8);
+    expect(view.agent.cash).toBeCloseTo(9_000, 8);
+    expect(view.agent.coins).toBeCloseTo(1_000, 8);
     expect(view.positions[0]?.symbol).toBe("BTC");
     expect(view.trades).toHaveLength(1);
     expect(view.trades[0]?.decisionId).toBe("cycle-1");
@@ -118,6 +122,8 @@ describe("Momentum Alpha view serialization", () => {
       "RISK CHECK",
       "TRADE EXECUTED",
     ]);
+    expect(events.at(-1)?.description).toMatch(/BUY BTC \$1,000\.00 · equity \$10,000\.00/);
+    expect(detail?.events).toEqual(events);
     expect(serializeMomentumAlphaApi(view).cycles[0]?.cycleId).toBe("cycle-1");
   });
 

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { setMomentumAlphaTradingAction, type TradingControlState } from "@/app/actions/trading";
 import { Button } from "@/components/ui/button";
+import { ARENA_LIVE_REFRESH_EVENT } from "@/lib/arena/live-events";
 import type { AgentStatus } from "@/types/arena";
 
 export function PauseTradingButton({
@@ -24,6 +25,7 @@ export function PauseTradingButton({
 
   useEffect(() => {
     if (wasPending.current && !pending) {
+      window.dispatchEvent(new Event(ARENA_LIVE_REFRESH_EVENT));
       router.refresh();
     }
 

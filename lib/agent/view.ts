@@ -1,7 +1,8 @@
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
-import { scoreTradesAgainstNextCheck, type TradeCheck } from "@/lib/agent/trade-outcomes";
+import { scoreBookTradeChecks, type TradeCheck } from "@/lib/agent/trade-outcomes";
 import type { AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
 import { findAgentDefinition } from "@/lib/agents/registry";
+import { formatUsd } from "@/lib/format";
 import { ASSET_CATALOG } from "@/lib/market/symbols";
 import type { AssetSnapshot, MarketSnapshot } from "@/lib/market/types";
 import { markToMarket } from "@/lib/paper/portfolio";
@@ -277,7 +278,7 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
   if (cycle.execution?.ok) {
     const equity = cycle.valuation?.portfolio.equity;
     const fill = cycle.execution.trade
-      ? `${cycle.execution.trade.side} ${cycle.execution.trade.symbol} ${cycle.execution.trade.notional}`
+      ? `${cycle.execution.trade.side} ${cycle.execution.trade.symbol} ${formatUsd(cycle.execution.trade.notional)}`
       : cycle.execution.action;
 
     events.push({
@@ -286,7 +287,7 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
       agentName,
       type: "TRADE_EXECUTED",
       title: "TRADE EXECUTED",
-      description: equity == null ? fill : `${fill} · equity ${equity}`,
+      description: equity == null ? fill : `${fill} · equity ${formatUsd(equity)}`,
       createdAt: cycle.completedAt,
     });
     return events;
@@ -377,6 +378,7 @@ export function cycleToDecisionRecord(cycle: AgentCycleResult): DecisionRecord |
     resultingEquity: cycle.valuation?.portfolio.equity,
     resultingQuantity: resulting?.quantity,
     failureMessage: cycle.failure ? displayFailureMessage(cycle.failure.message) : undefined,
+    events: cycleToActivityEvents(cycle),
   };
 }
 
@@ -432,7 +434,7 @@ function agentStatus(storeStatus: LeaderboardAgent["status"], cycles: readonly A
 
 export function buildAgentView(
   store: Pick<AgentCycleStore, "getAccount" | "getAgentStatus" | "listCycles" | "getDayStartEquity">,
-  agentId = MOMENTUM_ALPHA_AGENT.id
+  agentId: string = MOMENTUM_ALPHA_AGENT.id
 ): MomentumAlphaView {
   const definition = findAgentDefinition(agentId);
   const account = store.getAccount();
@@ -473,6 +475,8 @@ export function buildAgentView(
     winRatePercent: winRatePercent(account.trades),
     trades: account.trades.length,
     initialCapital: account.initialCapital,
+    cash: portfolio.cash,
+    coins: positions.reduce((sum, position) => sum + Math.abs(position.marketValue), 0),
     dataSource: "live",
     runtimeStatus: "LIVE",
   };
@@ -511,7 +515,7 @@ export function buildAgentView(
     equitySeries,
     latestCycle: serialized.at(-1) ?? null,
     hasCycles: cycles.length > 0,
-    tradeChecks: scoreTradesAgainstNextCheck(account.trades, cycles),
+    tradeChecks: scoreBookTradeChecks(account.trades, cycles),
   };
 }
 

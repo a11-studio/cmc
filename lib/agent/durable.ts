@@ -58,20 +58,20 @@ export async function hydrateAgentStore(agentId: string): Promise<AgentCycleStor
     return emptyStore(agentId);
   }
 
-  const agentResult = await client
-    .from("agents")
-    .select("account_payload, status, day_start_equity, last_equity, day_key")
-    .eq("id", agentId)
-    .maybeSingle();
+  const [agentResult, cyclesResult] = await Promise.all([
+    client
+      .from("agents")
+      .select("account_payload, status, day_start_equity, last_equity, day_key")
+      .eq("id", agentId)
+      .maybeSingle(),
+    client
+      .from("agent_cycles")
+      .select("payload, status")
+      .eq("agent_id", agentId)
+      .order("started_at", { ascending: true }),
+  ]);
 
   throwIfError(agentResult.error, "hydrate agent");
-
-  const cyclesResult = await client
-    .from("agent_cycles")
-    .select("payload, status")
-    .eq("agent_id", agentId)
-    .order("started_at", { ascending: true });
-
   throwIfError(cyclesResult.error, "hydrate cycles");
 
   const state = persistedStateFromRows(
@@ -145,7 +145,7 @@ export function skippedDuplicateFromStore(
   store: AgentCycleStore,
   cycleId: string,
   now = new Date(),
-  agentId = MOMENTUM_ALPHA_AGENT.id
+  agentId: string = MOMENTUM_ALPHA_AGENT.id
 ): AgentCycleResult {
   const prior = store.findCycle(cycleId);
   const account = store.getAccount();

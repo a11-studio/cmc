@@ -142,7 +142,7 @@ export function reviveCycle(raw: unknown): AgentCycleResult | null {
 export function snapshotPersistedState(
   store: AgentCycleStore,
   now = new Date(),
-  agentId = MOMENTUM_ALPHA_AGENT.id
+  agentId: string = MOMENTUM_ALPHA_AGENT.id
 ): PersistedArenaState {
   const account = store.getAccount();
   const cycles = store.listCycles().flatMap((cycle) => {
@@ -177,7 +177,7 @@ export function persistedStateFromRows(
   agent: PersistedAgentRow | null,
   cycleRows: PersistedCycleRow[],
   now = new Date(),
-  agentId = MOMENTUM_ALPHA_AGENT.id
+  agentId: string = MOMENTUM_ALPHA_AGENT.id
 ): PersistedArenaState | null {
   if (!agent) {
     return null;

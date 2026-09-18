@@ -18,6 +18,7 @@ export function IconRail() {
           <Link
             key={item.href}
             href={item.href}
+            prefetch
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex size-20 flex-col items-center rounded-[20px] pt-4 text-white transition-colors",

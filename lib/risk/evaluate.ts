@@ -286,18 +286,18 @@ export function evaluateRisk(input: RiskInput): RiskResult {
     ];
 
     if (action === "BUY") {
-      caps.push(
-        {
+      if (constraints.minCashPercent > PERCENT_EPSILON) {
+        caps.push({
           code: "MIN_CASH_BREACH",
           max: maxByCashReserve,
           detail: `Spending more would drop cash below ${constraints.minCashPercent}%`,
-        },
-        {
-          code: "LEVERAGE_FORBIDDEN",
-          max: maxByNoLeverage,
-          detail: "Spending more than cash would require leverage",
-        }
-      );
+        });
+      }
+      caps.push({
+        code: "LEVERAGE_FORBIDDEN",
+        max: maxByNoLeverage,
+        detail: "Spending more than cash would require leverage",
+      });
     }
 
     for (const cap of caps) {
