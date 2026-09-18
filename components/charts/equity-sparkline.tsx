@@ -87,6 +87,7 @@ export function EquitySparkline({
   const ticks = [max, min + range / 2, min];
   const activeCoord = coords[activeIndex ?? coords.length - 1]!;
   const latestCoord = coords.at(-1)!;
+  const baselineY = PAD_Y + innerHeight - ((baseline - min) / range) * innerHeight;
   const tooltipLeft = Math.min(Math.max((activeCoord.x / plotWidth) * 100, 18), 72);
 
   function setFromClientX(clientX: number) {
@@ -172,6 +173,16 @@ export function EquitySparkline({
                 />
               );
             })}
+
+            <line
+              x1={PAD_X}
+              x2={PAD_X + innerWidth}
+              y1={baselineY}
+              y2={baselineY}
+              stroke={isHero ? "rgba(255,255,255,0.38)" : "rgba(138,138,142,0.55)"}
+              strokeWidth="1"
+              strokeDasharray="5 5"
+            />
 
             <polygon points={area} fill={`url(#${gradientId})`} />
             <polyline
