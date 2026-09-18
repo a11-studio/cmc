@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export function ErrorState({
@@ -22,9 +23,9 @@ export function ErrorState({
             Try again
           </Button>
         ) : null}
-        <a href="/" className="text-sm text-positive transition-colors hover:text-positive-bright">
+        <Link href="/" className="text-sm text-positive transition-colors hover:text-positive-bright">
           Back to Arena
-        </a>
+        </Link>
       </div>
     </div>
   );

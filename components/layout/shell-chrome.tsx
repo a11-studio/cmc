@@ -29,6 +29,9 @@ export function ShellChrome() {
   }, []);
 
   useEffect(() => {
+    // `load` only sets state after awaiting the fetch, so this is not the
+    // synchronous cascading render the rule guards against.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
 
     function onRefresh() {

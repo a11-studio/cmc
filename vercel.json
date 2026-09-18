@@ -1,11 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/agents/momentum-alpha/cycle",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/agents/richard-dennis/cycle",
+      "path": "/api/agents/cycle",
       "schedule": "*/15 * * * *"
     }
   ]

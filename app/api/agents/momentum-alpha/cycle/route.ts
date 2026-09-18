@@ -1,20 +1,11 @@
+import { isCronAuthorized } from "@/lib/agent/cron";
 import { runMomentumAlphaCycle } from "@/lib/agent/runtime";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-
-  if (!secret) {
-    return true;
-  }
-
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 async function handle(request: Request): Promise<Response> {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

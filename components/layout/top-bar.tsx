@@ -6,13 +6,13 @@ import type { MarketTickerQuote } from "@/types/arena";
 
 export function TopBar({
   quotes,
-  lastCycleCompletedAt,
+  lastCompletedAt,
   serverNow,
   autoRunCycle,
   tradingPaused,
 }: {
   quotes: MarketTickerQuote[];
-  lastCycleCompletedAt?: string | null;
+  lastCompletedAt?: string | null;
   serverNow: string;
   autoRunCycle?: boolean;
   tradingPaused?: boolean;
@@ -33,7 +33,7 @@ export function TopBar({
         <MarketQuotes quotes={quotes} />
       </div>
       <NextCycleTimer
-        lastCompletedAt={lastCycleCompletedAt}
+        lastCompletedAt={lastCompletedAt}
         serverNow={serverNow}
         autoRun={autoRunCycle}
         paused={tradingPaused}

@@ -1,17 +1,22 @@
 import { formatPercent } from "@/lib/format";
 import type { RankedShare } from "@/lib/market/shares";
 
+function stackSlices(slices: readonly RankedShare[]) {
+  let start = 0;
+
+  return slices.map((slice) => {
+    const layer = { ...slice, start };
+    start += slice.percent;
+    return layer;
+  });
+}
+
 export function CompositionTrack({ slices }: { slices: readonly RankedShare[] }) {
   if (slices.length === 0) {
     return <div className="h-2 w-full rounded-[20px] bg-[#1A2E2E]" />;
   }
 
-  let start = 0;
-  const layers = slices.map((slice) => {
-    const layer = { ...slice, start };
-    start += slice.percent;
-    return layer;
-  });
+  const layers = stackSlices(slices);
 
   return (
     <div className="relative h-2 w-full">
