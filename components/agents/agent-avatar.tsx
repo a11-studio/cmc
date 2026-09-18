@@ -11,6 +11,7 @@ const portraits: Partial<Record<AgentMark, string>> = {
   jones: "/agents/paul-tudor-jones.jpg",
   quant: "/agents/jim-simons.jpg",
   burry: "/agents/michael-burry.jpg",
+  buffett: "/agents/warren-buffett.jpg",
   hayes: "/agents/arthur-hayes.jpg",
 };
 
@@ -25,6 +26,7 @@ const markStyles: Record<AgentMark, string> = {
   jones: "bg-[#101820] text-[#93C5FD]",
   quant: "bg-[#14141C] text-[#C4B5FD]",
   burry: "bg-negative-muted text-negative",
+  buffett: "bg-[#0B1A14] text-[#6EE7B7]",
   hayes: "bg-[#1A1208] text-[#FDBA74]",
 };
 
@@ -106,6 +108,21 @@ function MacroGlyph() {
   );
 }
 
+function CompoundGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-[14px]">
+      <path
+        d="M4 19c5.5 0 11.5-3.5 16-14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path d="M4 19h16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const glyphs: Record<AgentMark, ReactNode> = {
   momentum: <MomentumGlyph />,
   news: <NewsGlyph />,
@@ -117,6 +134,7 @@ const glyphs: Record<AgentMark, ReactNode> = {
   jones: <MacroGlyph />,
   quant: <NewsGlyph />,
   burry: <ContrarianGlyph />,
+  buffett: <CompoundGlyph />,
   hayes: <MacroGlyph />,
 };
 

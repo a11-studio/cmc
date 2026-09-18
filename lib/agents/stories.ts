@@ -74,6 +74,16 @@ export const AGENT_STORIES: Record<string, AgentStory> = {
       "The less cinematic part is the wait. The position was uncomfortable for a long time, investors pushed back, and the payoff arrived only after the excess had fully shown itself. That timing — not a permanent short bias — is what this agent is built to imitate.",
     ],
   },
+  "warren-buffett": {
+    strategy: [
+      "The Value Compounder is long-only and biased toward being invested. It picks the asset whose snapshot profile looks most durable — multi-period returns rather than a 1h spike, real size, sustained volume — and then sits on it for as long as that profile holds.",
+      "Fear is the buy signal. Broad drawdowns, fearful sentiment, and visible forced selling make it size up rather than step aside. Cash is the position that has to justify itself, and a 15-minute wobble is never a reason to sell. Earnings, book value, and cash flows are not in the snapshot, so they are never invented.",
+    ],
+    history: [
+      "Warren Buffett turned Berkshire Hathaway from a failing textile mill into a holding company by buying durable businesses at sensible prices and refusing to trade them. The record is built less on any single call than on low turnover, concentration in high-conviction positions, and a willingness to deploy capital when everyone else was selling.",
+      "He has also been openly dismissive of crypto, which makes this the most deliberately partial translation in the Arena. The agent keeps the method — quality, patience, buy-when-fearful, never short, never lever — and applies it to the only asset set it has. The endorsement is not implied.",
+    ],
+  },
   "arthur-hayes": {
     strategy: [
       "The Macro + Crypto Liquidity agent treats crypto as a liquidity market. High conviction requires the same direction in asset structure and in whatever macro or market-wide fields the snapshot actually contains: dominance, total cap, volume, basket-wide risk-on or risk-off.",

@@ -196,6 +196,28 @@
   animation: arena-enter 220ms ease-out both;
 }
 
+@keyframes equity-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  45% {
+    opacity: 0.3;
+  }
+  80%,
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+/* fill-box keeps the scale centred on the circle instead of the SVG origin. */
+.animate-equity-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: equity-pulse 2s ease-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-ticker {
     animation: none;
@@ -203,5 +225,10 @@
 
   .animate-arena-enter {
     animation: none;
+  }
+
+  .animate-equity-pulse {
+    animation: none;
+    opacity: 0;
   }
 }

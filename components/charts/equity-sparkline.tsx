@@ -86,6 +86,7 @@ export function EquitySparkline({
   const area = `${PAD_X},${PAD_Y + innerHeight} ${line} ${PAD_X + innerWidth},${PAD_Y + innerHeight}`;
   const ticks = [max, min + range / 2, min];
   const activeCoord = coords[activeIndex ?? coords.length - 1]!;
+  const latestCoord = coords.at(-1)!;
   const tooltipLeft = Math.min(Math.max((activeCoord.x / plotWidth) * 100, 18), 72);
 
   function setFromClientX(clientX: number) {
@@ -141,7 +142,7 @@ export function EquitySparkline({
             ref={svgRef}
             viewBox={`0 0 ${plotWidth} ${plotHeight}`}
             preserveAspectRatio="none"
-            className="h-full w-full"
+            className="h-full w-full overflow-visible"
             role="img"
             aria-label="Equity curve"
           >
@@ -213,7 +214,16 @@ export function EquitySparkline({
                 />
               </g>
             ) : (
-              <circle cx={activeCoord.x} cy={activeCoord.y} r="3" fill={stroke} />
+              <g>
+                <circle
+                  className="animate-equity-pulse"
+                  cx={latestCoord.x}
+                  cy={latestCoord.y}
+                  r="3"
+                  fill={stroke}
+                />
+                <circle cx={latestCoord.x} cy={latestCoord.y} r="3" fill={stroke} />
+              </g>
             )}
           </svg>
 

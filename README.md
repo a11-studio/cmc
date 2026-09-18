@@ -8,7 +8,7 @@ Submitted to the **CoinMarketCap API Hackathon** in the **AI Agents and Automati
 
 A plain CoinMarketCap call returns a price. None of the following falls out of that call:
 
-- **The same snapshot produces six different answers.** Each agent loads a strategy file (`skills/*.md`) that defines its mandate, time horizon and risk appetite. Burry fades excess, Donchian follows breakouts, Simons only trusts observable features. Identical input, divergent behaviour — that divergence is the product.
+- **The same snapshot produces six different answers.** Each agent loads a strategy file (`skills/*.md`) that defines its mandate, time horizon and risk appetite. Buffett buys quality and sits on it, Donchian follows breakouts, Simons only trusts observable features. Identical input, divergent behaviour — that divergence is the product.
 - **The model does not get the last word.** `lib/risk/evaluate.ts` runs six deterministic checks after the LLM commits to a decision: max trade size (15% of equity), open position cap (3), daily loss limit (5%), max drawdown (15%), minimum cash, and position concentration. A trade can be downsized or blocked outright, and the rejection reason is stored alongside the original intent.
 - **It compounds.** Portfolios, open positions and realised P&L persist across cycles in Supabase, so a decision made at 09:00 constrains what the agent can do at 09:15. The leaderboard measures accumulated judgement, not one-off calls.
 - **It runs unattended.** A Vercel cron hits one endpoint every 15 minutes; cycles are claimed idempotently per time slot, so a retried or duplicated invocation cannot double-trade.
@@ -101,7 +101,7 @@ GET https://pro-api.coinmarketcap.com/v5/derivatives/liquidations/quotes/latest?
 | Richard Donchian | The Trend — low-discretion channel following | Medium | Medium |
 | Jesse Livermore | The Speculator — confirmed price action, not stories | Short / medium | Aggressive |
 | Jim Simons | The Quant — observable snapshot features only | Short / medium | Medium |
-| Michael Burry | The Contrarian — fades excess, not strong trends | Medium / long | Conservative |
+| Warren Buffett | The Value Compounder — long-only quality, adds on fear | Long | Conservative |
 
 Each row maps to a markdown strategy file in `skills/`, which is injected into that agent's prompt. Adding an agent means writing a skill file and one registry entry in `lib/agents/registry.ts` — no changes to the cycle, the cron, or the UI.
 
@@ -153,7 +153,7 @@ Never put a secret in a `NEXT_PUBLIC_*` variable. The Settings page reports whic
 
 ```bash
 curl -X POST http://localhost:3000/api/agents/cycle           # every LIVE agent
-curl -X POST http://localhost:3000/api/agents/michael-burry/cycle   # one agent
+curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle  # one agent
 ```
 
 In production a single Vercel cron (`vercel.json`) hits `/api/agents/cycle` every 15 minutes, so new agents start trading as soon as they are marked LIVE in the registry.

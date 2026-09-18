@@ -45,7 +45,7 @@ export function ArenaDashboard({
           action={<PauseTradingButton status={paused ? "PAUSED" : "ACTIVE"} compact />}
         />
         <AgentAllocationCard books={books} />
-        <LatestDecisionCard decision={live.decisions[0] ?? null} />
+        <LatestDecisionCard decisions={books.flatMap((book) => book.decisions)} />
         <div className="h-full md:col-span-2 xl:col-span-3">
           <AgentsTableCard agents={roster} />
         </div>

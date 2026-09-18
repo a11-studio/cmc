@@ -45,7 +45,21 @@ export function buildAllocationSlices(books: MomentumAlphaView[]): AllocationSli
     });
   }
 
-  return colored.filter((slice) => slice.percent >= 0.05);
+  const sorted = colored
+    .filter((slice) => slice.percent >= 0.05)
+    .sort((left, right) => right.percent - left.percent);
+
+  let agentColorIndex = 0;
+
+  return sorted.map((slice) => {
+    if (slice.id === "cash") {
+      return { ...slice, color: TEAL[TEAL.length - 1]! };
+    }
+
+    const color = TEAL[agentColorIndex] ?? TEAL[TEAL.length - 2] ?? TEAL[0];
+    agentColorIndex += 1;
+    return { ...slice, color };
+  });
 }
 
 export function AgentAllocationCard({
@@ -64,7 +78,9 @@ export function AgentAllocationCard({
         <CompositionTrack slices={slices} />
       </div>
 
-      <ul className="mt-8 space-y-4">
+      {/* justify-between spreads the legend over the card so the three top
+          cards end on the same line whatever the slice count is. */}
+      <ul className="mt-8 flex flex-1 flex-col justify-between gap-4">
         {slices.map((slice) => (
           <li key={slice.id} className="flex items-center justify-between gap-3 text-sm">
             <span className="flex min-w-0 items-center gap-2.5">

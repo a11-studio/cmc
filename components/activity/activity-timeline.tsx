@@ -1,5 +1,6 @@
 "use client";
 
+import { TextWithAssetTickers } from "@/components/market/asset-icon";
 import { formatClockTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ActivityEvent, ActivityEventType } from "@/types/arena";
@@ -62,7 +63,9 @@ export function ActivityTimeline({
             <p className={cn("text-xs font-medium tracking-wide uppercase", eventTone[event.type])}>
               {event.title}
             </p>
-            <p className="mt-0.5 text-sm text-foreground">{event.description}</p>
+            <p className="mt-0.5 text-sm text-foreground">
+              <TextWithAssetTickers text={event.description} size="xs" />
+            </p>
             {showAgent ? (
               <p className="mt-1 text-xs text-tertiary">{event.agentName}</p>
             ) : null}

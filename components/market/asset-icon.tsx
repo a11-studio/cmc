@@ -195,6 +195,43 @@ export function CashTicker({
   );
 }
 
+export function TextWithAssetTickers({
+  text,
+  size = "xs",
+  className,
+}: {
+  text: string;
+  size?: keyof typeof sizeClass;
+  className?: string;
+}) {
+  const tokens = text.match(/\S+|\s+/g) ?? [text];
+
+  return (
+    <span className={className}>
+      {tokens.map((token, index) => {
+        if (/^\s+$/.test(token)) {
+          return token;
+        }
+
+        const symbol = token.toUpperCase();
+
+        if (isSupportedSymbol(symbol)) {
+          return (
+            <AssetTicker
+              key={`${index}-${symbol}`}
+              symbol={symbol}
+              size={size}
+              className="mx-0.5 inline-flex align-middle"
+            />
+          );
+        }
+
+        return <span key={`${index}-${token}`}>{token}</span>;
+      })}
+    </span>
+  );
+}
+
 export function TickerPhrase({
   text,
   size = "xs",

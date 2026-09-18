@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AgentAvatar } from "@/components/agents/agent-avatar";
 import { DashboardCardSubtitle, DashboardCardTitle } from "@/components/arena/dashboard-card";
-import { AssetIcon } from "@/components/market/asset-icon";
+import { AssetTicker } from "@/components/market/asset-icon";
 import { SideBadge } from "@/components/shared/side-badge";
 import { formatNumber, formatRelativeTime, formatUsd } from "@/lib/format";
 import type { AgentMark } from "@/types/arena";
@@ -69,9 +69,8 @@ function FillRow({ fill }: { fill: ActivityFill }) {
               {fill.agentName}
             </p>
             <div className="mt-1.5 flex items-center gap-2">
-              <AssetIcon symbol={fill.symbol} size="md" />
               <SideBadge action={fill.side} />
-              <span className="text-sm font-medium">{fill.symbol}</span>
+              <AssetTicker symbol={fill.symbol} size="md" className="text-sm font-medium" />
             </div>
             <p className="mt-1 text-[12px] tabular-nums text-white/40">
               {formatNumber(fill.quantity, 4)} @ {formatUsd(fill.price)}

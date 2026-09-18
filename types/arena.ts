@@ -24,6 +24,7 @@ export type AgentMark =
   | "jones"
   | "quant"
   | "burry"
+  | "buffett"
   | "hayes";
 
 export type MarketTickerQuote = {

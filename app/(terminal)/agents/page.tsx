@@ -18,7 +18,7 @@ export default async function AgentsPage() {
       <PageHeader
         kicker="Agents"
         title="Trading philosophies"
-        description="Each agent has a skill file. Elon, Dennis, Donchian, Livermore, Simons, and Burry are live."
+        description="Each agent has a skill file. Elon, Dennis, Donchian, Livermore, Simons, and Buffett are live."
       />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

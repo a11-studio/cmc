@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { DashboardCard, DashboardCardSubtitle, DashboardCardTitle } from "@/components/arena/dashboard-card";
 import { EquitySparkline } from "@/components/charts/equity-sparkline";
-import { SignedPercent, SignedUsd } from "@/components/shared/signed-value";
+import { AnimatedSignedUsd } from "@/components/shared/animated-signed-usd";
+import { SignedPercent } from "@/components/shared/signed-value";
 import { formatUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { EquityCurvePoint } from "@/types/arena";
@@ -42,7 +43,7 @@ export function ArenaPerformanceCard({
       </div>
 
       <p className="mt-6">
-        <SignedUsd
+        <AnimatedSignedUsd
           value={pnl}
           className={cn(
             "text-[40px] leading-none font-medium tracking-tight",
