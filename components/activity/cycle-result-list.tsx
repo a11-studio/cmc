@@ -27,7 +27,7 @@ export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
     return (
       <EmptyState
         title="No cycles yet."
-        description="Run Cycle or wait for the next 15-minute slot. Duplicate slots are skipped."
+        description="Run Cycle or wait for the next hourly slot. Duplicate slots are skipped."
       />
     );
   }

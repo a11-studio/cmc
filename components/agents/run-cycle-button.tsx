@@ -38,7 +38,7 @@ export function RunCycleButton({ compact = false, agentId }: { compact?: boolean
           {state.message}
         </p>
       ) : (
-        <p className="text-xs text-faint">Dev trigger · same path as the 15-minute cycle</p>
+        <p className="text-xs text-faint">Dev trigger · same path as the hourly cycle</p>
       )}
     </form>
   );

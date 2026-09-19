@@ -25,7 +25,7 @@ function timestamp(decision: DecisionRecord): number {
 
 /**
  * Collapses every live agent's newest decision into one round. Agents run on
- * the same 15-minute schedule but not the same instant, so the round is a
+ * the same hourly schedule but not the same instant, so the round is a
  * window back from the newest decision rather than a shared cycle id.
  */
 export function latestDecisionBatch(decisions: readonly DecisionRecord[]): DecisionBatch {

@@ -214,6 +214,47 @@ describe("Momentum Alpha persistence mapping", () => {
     expect(rows.agent.status).toBe("PAUSED");
   });
 
+  it("stores cycles without the fields hydrate never reads back", async () => {
+    const store = createInMemoryAgentStore();
+    await runAgentCycle({
+      agent: MOMENTUM_ALPHA_AGENT,
+      cycleId: "cycle-slim",
+      deps: createDeps({
+        store,
+        getMarketSnapshot: vi.fn(async () => ({
+          ...snapshot(),
+          market: {
+            btcDominance: 54,
+            openInterest: 200,
+            openInterestVenues: [{ name: "Binance", value: 120 }],
+            derivativesVolumeVenues: [{ name: "Binance", value: 90 }],
+          },
+        })),
+        generateTradeDecision: vi.fn(async () =>
+          decision({ action: "BUY", symbol: "BTC", allocationPercent: 10 })
+        ),
+      }),
+    });
+
+    const rows = toArenaWriteRows(snapshotPersistedState(store, NOW), NOW);
+    const payload = rows.cycles[0]!.payload as Record<string, unknown>;
+    const stored = payload.snapshot as { market: Record<string, unknown>; assets: unknown[] };
+
+    expect(payload.trace).toBeUndefined();
+    expect(stored.market.openInterestVenues).toBeUndefined();
+    expect(stored.market.derivativesVolumeVenues).toBeUndefined();
+    expect((payload.execution as Record<string, unknown>).account).toBeUndefined();
+
+    // Everything the dashboard renders survives the round trip.
+    expect(stored.market.openInterest).toBe(200);
+    expect(stored.assets).toHaveLength(5);
+    const revived = reviveCycle(payload)!;
+    expect(revived.decision?.symbol).toBe("BTC");
+    expect(revived.execution?.ok ? revived.execution.trade?.symbol : null).toBe("BTC");
+    expect(revived.snapshot?.assets[0]?.price).toBe(50_000);
+    expect(revived.trace.decision?.symbol).toBe("BTC");
+  });
+
   it("persists only the latest cycle row to Supabase", async () => {
     const store = createInMemoryAgentStore();
     const deps = createDeps({ store, generateTradeDecision: vi.fn(async () => decision({ action: "HOLD" })) });

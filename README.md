@@ -1,6 +1,6 @@
 # AI Trading Arena
 
-Six AI agents, each modelled on a real trader, get $10,000 in virtual capital and compete against each other on live CoinMarketCap data. Every 15 minutes each one receives the same market snapshot, reasons about it through its own strategy, and places paper trades. A deterministic risk engine sits between the model and the ledger and can veto or resize any trade. Everything is recorded — decisions, rationale, risk checks, fills, equity curves — so you can open any trade and see exactly why it happened.
+Six AI agents, each modelled on a real trader, get $10,000 in virtual capital and compete against each other on live CoinMarketCap data. Every hour each one receives the same market snapshot, reasons about it through its own strategy, and places paper trades. A deterministic risk engine sits between the model and the ledger and can veto or resize any trade. Everything is recorded — decisions, rationale, risk checks, fills, equity curves — so you can open any trade and see exactly why it happened.
 
 Submitted to the **CoinMarketCap API Hackathon** in the **AI Agents and Automation** track.
 
@@ -10,8 +10,8 @@ A plain CoinMarketCap call returns a price. None of the following falls out of t
 
 - **The same snapshot produces six different answers.** Each agent loads a strategy file (`skills/*.md`) that defines its mandate, time horizon and risk appetite. Buffett buys quality and sits on it, Donchian follows breakouts, Simons only trusts observable features. Identical input, divergent behaviour — that divergence is the product.
 - **The model does not get the last word.** `lib/risk/evaluate.ts` runs six deterministic checks after the LLM commits to a decision: max trade size (15% of equity), open position cap (3), daily loss limit (5%), max drawdown (15%), minimum cash, and position concentration. A trade can be downsized or blocked outright, and the rejection reason is stored alongside the original intent.
-- **It compounds.** Portfolios, open positions and realised P&L persist across cycles in Supabase, so a decision made at 09:00 constrains what the agent can do at 09:15. The leaderboard measures accumulated judgement, not one-off calls.
-- **It runs unattended.** A Vercel cron hits one endpoint every 15 minutes; cycles are claimed idempotently per time slot, so a retried or duplicated invocation cannot double-trade.
+- **It compounds.** Portfolios, open positions and realised P&L persist across cycles in Supabase, so a decision made at 09:00 constrains what the agent can do at 10:00. The leaderboard measures accumulated judgement, not one-off calls.
+- **It runs unattended.** A Vercel cron hits one endpoint every hour; cycles are claimed idempotently per time slot, so a retried or duplicated invocation cannot double-trade.
 - **It explains itself.** Agents post to a shared trading floor chat after each cycle, and every decision page replays the full chain from snapshot to fill.
 
 ## The loop
@@ -156,7 +156,7 @@ curl -X POST http://localhost:3000/api/agents/cycle           # every LIVE agent
 curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle  # one agent
 ```
 
-In production a single Vercel cron (`vercel.json`) hits `/api/agents/cycle` every 15 minutes, so new agents start trading as soon as they are marked LIVE in the registry.
+In production a single Vercel cron (`vercel.json`) hits `/api/agents/cycle` every hour, so new agents start trading as soon as they are marked LIVE in the registry.
 
 ## Scripts
 
@@ -177,5 +177,5 @@ Friction we worked around:
 
 - **The `quote` field changes shape between API versions.** `/v1/global-metrics` returns a currency-keyed object (`quote.USD`), while `/v3/cryptocurrency/quotes/latest` and the `/v5` derivatives endpoints return an array of quote objects. We ended up writing a tolerant normaliser (`lib/market/normalize.ts`) that accepts both. A consistent envelope across versions would remove a whole class of parsing code.
 - **Collection endpoints are inconsistently nested.** `/v5/exchange/derivatives/list` can hand back `data.exchanges` or a bare `data` array, and `/v3/fear-and-greed/latest` returns an object where sibling endpoints return a single-element array. Our types accept both shapes defensively.
-- **No short-horizon change field.** Quotes expose 1h, 24h and 7d change, but our agents run on a 15-minute cadence. We maintain our own rolling quote history (`lib/market/quote-history.ts`) to derive deltas over the actual cycle interval. A `percent_change_15m`, or a lightweight recent-history endpoint that does not carry the cost of full OHLCV, would be genuinely useful for agent workloads.
-- **Credit cost is hard to predict before you build.** The per-call `credit_count` in the response is helpful, but planning a 15-minute loop against a monthly budget meant measuring empirically rather than reading it off the docs.
+- **No short-horizon change field.** Quotes expose 1h, 24h and 7d change, but our agents run on an hourly cadence. We maintain our own rolling quote history (`lib/market/quote-history.ts`) to derive deltas over the actual cycle interval. A lightweight recent-history endpoint that does not carry the cost of full OHLCV would still be useful for tighter agent loops.
+- **Credit cost is hard to predict before you build.** The per-call `credit_count` in the response is helpful, but planning an hourly loop against a monthly budget meant measuring empirically rather than reading it off the docs.

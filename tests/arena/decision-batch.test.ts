@@ -41,8 +41,8 @@ describe("latestDecisionBatch", () => {
   it("drops decisions from an earlier round", () => {
     const batch = latestDecisionBatch([
       decision("a", "BUY", 90, "2026-09-18T12:00:00.000Z"),
-      decision("a", "SELL", 10, "2026-09-18T11:00:00.000Z"),
-      decision("b", "HOLD", 70, "2026-09-18T11:00:00.000Z"),
+      decision("a", "SELL", 10, "2026-09-18T10:00:00.000Z"),
+      decision("b", "HOLD", 70, "2026-09-18T10:00:00.000Z"),
     ]);
 
     expect(batch.decisions).toHaveLength(1);

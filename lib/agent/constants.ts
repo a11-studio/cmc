@@ -1,4 +1,4 @@
-export const AGENT_CYCLE_INTERVAL_MS = 15 * 60 * 1000;
+export const AGENT_CYCLE_INTERVAL_MS = 60 * 60 * 1000;
 
 export const MOMENTUM_ALPHA_AGENT = {
   id: "momentum-alpha",

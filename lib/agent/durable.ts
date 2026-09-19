@@ -19,7 +19,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Max cycle rows loaded per agent on hydrate (keeps PostgREST egress bounded). */
-export const HYDRATE_CYCLE_LIMIT = 160;
+export const HYDRATE_CYCLE_LIMIT = 72;
 
 function throwIfError(error: { message: string } | null, action: string): void {
   if (error) {

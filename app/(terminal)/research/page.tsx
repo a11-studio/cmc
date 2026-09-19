@@ -47,7 +47,7 @@ export default async function ResearchPage({
         rememberSnapshot(cycle.snapshot, cycle.startedAt);
       }
     } catch {
-      // Cycle history is optional context for the 15-minute prior.
+      // Cycle history is optional context for the hourly prior.
     }
   }
 
@@ -119,7 +119,7 @@ function ResearchView({
       <PageHeader
         kicker="Research"
         title="Quotes"
-        description="Live CoinMarketCap quotes. 15m uses the last stored snapshot around 15 minutes ago — not the 1h CMC field."
+        description="Live CoinMarketCap quotes. 1h uses the last stored snapshot around one hour ago — not the native CMC 1h field."
       />
 
       <ResearchMarketCards market={snapshot.market} priors={marketPriors} />
@@ -195,7 +195,7 @@ function AssetCard({
         <p className="text-2xl font-semibold tabular-nums">{formatUsd(asset.price)}</p>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <Row
-            label={prior ? `${prior.ageMinutes}m` : "15m"}
+            label={prior ? `${prior.ageMinutes}m` : "Arena 1h"}
             value={prior ? <SignedPercent value={prior.changePercent} /> : <span className="text-faint">pending</span>}
           />
           <Row label="1h" value={<SignedPercent value={asset.change1h} />} />

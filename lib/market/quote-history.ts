@@ -1,10 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { AGENT_CYCLE_INTERVAL_MS } from "@/lib/agent/constants";
 import type { MarketSnapshot, SupportedSymbol } from "@/lib/market/types";
 
-export const QUOTE_LOOKBACK_MS = 15 * 60 * 1000;
-const MIN_LOOKBACK_MS = 8 * 60 * 1000;
-const MAX_LOOKBACK_MS = 25 * 60 * 1000;
+export const QUOTE_LOOKBACK_MS = AGENT_CYCLE_INTERVAL_MS;
+const MIN_LOOKBACK_MS = 45 * 60 * 1000;
+const MAX_LOOKBACK_MS = 75 * 60 * 1000;
 const MAX_POINTS = 180;
 const BUCKET_MS = 60_000;
 

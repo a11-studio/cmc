@@ -72,6 +72,16 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function omit<T extends object, K extends keyof T>(value: T, keys: readonly K[]): Omit<T, K> {
+  const next = { ...value };
+
+  for (const key of keys) {
+    delete next[key];
+  }
+
+  return next;
+}
+
 function utcDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -136,7 +146,43 @@ export function reviveCycle(raw: unknown): AgentCycleResult | null {
     });
   }
 
+  // The trace is a view over fields we already store, so it is rebuilt here
+  // instead of being written to every row.
+  cycle.trace = {
+    agentId: cycle.agentId,
+    strategy: cycle.strategy,
+    cycleId: cycle.cycleId,
+    snapshotTimestamp: cycle.snapshotTimestamp ?? null,
+    decision: cycle.decision ?? null,
+    riskResult: cycle.riskResult ?? null,
+    execution: cycle.execution ?? null,
+  };
+
   return cycle;
+}
+
+/**
+ * Strips everything a stored cycle duplicates elsewhere: the trace (derived
+ * from sibling fields), the venue breakdowns and news (archived in full on
+ * market_snapshots), and the account/valuation copies carried by execution.
+ * Cuts a row from roughly 14 kB to 2 kB, which is what hydrate reads back.
+ */
+export function slimCycleForStorage(cycle: AgentCycleResult): Record<string, unknown> {
+  const copy = cloneJson(cycle);
+  const slim = omit(copy, ["trace"]) as Record<string, unknown>;
+
+  if (copy.snapshot) {
+    slim.snapshot = {
+      ...omit(copy.snapshot, ["news"]),
+      market: omit(copy.snapshot.market, ["openInterestVenues", "derivativesVolumeVenues"]),
+    };
+  }
+
+  if (copy.execution) {
+    slim.execution = omit(copy.execution, ["account", "valuation"]);
+  }
+
+  return slim;
 }
 
 export function snapshotPersistedState(
@@ -240,7 +286,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
       completed_at: cycle.completedAt,
       status: cycle.status,
       error: cycle.failure ?? null,
-      payload: cloneJson(cycle),
+      payload: slimCycleForStorage(cycle),
     })),
     snapshots: state.cycles.flatMap((cycle) =>
       cycle.snapshot

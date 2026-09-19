@@ -110,7 +110,7 @@ export default async function AgentDetailPage({
               {isManualCycleEnabled() ? <RunCycleButton compact agentId={agent.id} /> : null}
             </div>
             {isManualCycleEnabled() ? (
-              <p className="text-xs text-faint">Dev trigger · same path as the 15-minute cycle</p>
+              <p className="text-xs text-faint">Dev trigger · same path as the hourly cycle</p>
             ) : null}
           </div>
         ) : (

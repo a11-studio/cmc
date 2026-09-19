@@ -25,7 +25,7 @@ function MetricHero({
           <span className="ml-1.5">{prior.ageMinutes}m</span>
         </p>
       ) : (
-        <p className="text-[13px] text-white/35">15m pending</p>
+        <p className="text-[13px] text-white/35">1h pending</p>
       )}
     </div>
   );

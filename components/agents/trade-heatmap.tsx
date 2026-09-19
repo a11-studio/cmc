@@ -42,7 +42,7 @@ function outcomeLabel(check: TradeCheck) {
     return "Blocked";
   }
 
-  return "Waiting for next 15m check";
+  return "Waiting for next hourly check";
 }
 
 function cellClassName(tone: TradeCheckTone) {
@@ -117,7 +117,7 @@ function TradeCheckCell({ check }: { check: TradeCheck }) {
 
 export function TradeHeatmap({
   checks,
-  emptyLabel = "Squares appear after a cycle. Color waits for the next 15-minute check.",
+  emptyLabel = "Squares appear after a cycle. Color waits for the next hourly check.",
 }: {
   checks: TradeCheck[];
   emptyLabel?: string;
@@ -136,7 +136,7 @@ export function TradeHeatmap({
           Trade checks
         </CardTitle>
         <p className="mt-2 text-sm text-white/45">
-          One square per decision. Green confirmed the side at the next 15-minute check, red moved against
+          One square per decision. Green confirmed the side at the next hourly check, red moved against
           it. Hollow squares are still waiting. HOLD and blocked attempts count too.
         </p>
       </CardHeader>

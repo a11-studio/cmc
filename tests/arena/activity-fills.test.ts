@@ -6,13 +6,13 @@ function fill(id: string, createdAt: string) {
 }
 
 describe("latestFillBatch", () => {
-  it("keeps fills from the latest 15-minute wave and hides older ones", () => {
+  it("keeps fills from the latest hourly wave and hides older ones", () => {
     const { latest, older } = latestFillBatch([
       fill("simons", "2026-09-18T11:30:00.000Z"),
       fill("livermore", "2026-09-18T11:20:00.000Z"),
       fill("elon", "2026-09-18T11:20:00.000Z"),
-      fill("dennis", "2026-09-18T11:00:00.000Z"),
-      fill("donchian", "2026-09-18T10:45:00.000Z"),
+      fill("dennis", "2026-09-18T10:00:00.000Z"),
+      fill("donchian", "2026-09-18T09:00:00.000Z"),
     ]);
 
     expect(latest.map((item) => item.id)).toEqual(["simons", "livermore", "elon"]);
@@ -23,8 +23,8 @@ describe("latestFillBatch", () => {
     const { latest, older } = latestFillBatch([
       fill("elon", "2026-09-18T11:45:00.000Z"),
       fill("simons", "2026-09-18T11:30:00.000Z"),
-      fill("livermore", "2026-09-18T11:15:00.000Z"),
-      fill("dennis", "2026-09-18T11:00:00.000Z"),
+      fill("livermore", "2026-09-18T10:30:00.000Z"),
+      fill("dennis", "2026-09-18T09:00:00.000Z"),
     ]);
 
     expect(latest.map((item) => item.id)).toEqual(["elon", "simons", "livermore"]);
