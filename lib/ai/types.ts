@@ -1,5 +1,6 @@
 import type { MarketSnapshot, SupportedSymbol } from "@/lib/market/types";
 import type { TimeHorizon, TradeAction, TradeDecision } from "@/lib/paper/types";
+import type { TradingHeadroom } from "@/lib/risk/headroom";
 
 export type DecisionPositionContext = {
   symbol: SupportedSymbol;
@@ -25,6 +26,7 @@ export type DecisionContext = {
   snapshotTimestamp: string;
   snapshot: MarketSnapshot;
   portfolio: DecisionPortfolioContext;
+  headroom?: TradingHeadroom;
 };
 
 export type GeminiGenerateContentRequest = {

@@ -47,6 +47,53 @@ function context(overrides: Partial<DecisionContext> = {}): DecisionContext {
   });
 }
 
+describe("executable headroom in the decision context", () => {
+  it("tells a fully deployed agent that BUY cannot execute", async () => {
+    let sent: Parameters<GeminiGenerateContent>[0] | undefined;
+
+    await generateTradeDecision(
+      context({
+        portfolio: {
+          cash: 0,
+          equity: 10_000,
+          positions: [
+            {
+              symbol: "BTC",
+              quantity: 0.13,
+              averageEntryPrice: 74_000,
+              marketValue: 10_000,
+              unrealizedPnl: 120,
+              allocationPercent: 100,
+            },
+          ],
+        },
+      }),
+      { generateContent: mockClient(validDecision(), (request) => (sent = request)) }
+    );
+
+    const payload = JSON.parse(sent!.contents.slice(sent!.contents.indexOf("{")));
+
+    expect(payload.headroom.cashPercentOfEquity).toBe(0);
+    expect(payload.headroom.executableActions).not.toContain("BUY");
+    expect(payload.headroom.executableActions).toContain("SELL");
+    expect(sent!.systemInstruction).toContain("EXECUTABLE HEADROOM");
+  });
+
+  it("offers BUY room while cash is available", async () => {
+    let sent: Parameters<GeminiGenerateContent>[0] | undefined;
+
+    await generateTradeDecision(context(), {
+      generateContent: mockClient(validDecision(), (request) => (sent = request)),
+    });
+
+    const payload = JSON.parse(sent!.contents.slice(sent!.contents.indexOf("{")));
+    const btc = payload.headroom.perSymbol.find((entry: { symbol: string }) => entry.symbol === "BTC");
+
+    expect(payload.headroom.executableActions).toContain("BUY");
+    expect(btc.maxBuyPercentOfEquity).toBe(15);
+  });
+});
+
 function validDecision(overrides: Partial<TradeDecision> = {}): TradeDecision {
   return {
     action: "HOLD",

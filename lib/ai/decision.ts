@@ -16,6 +16,9 @@ import type {
   TradeDecision,
 } from "@/lib/ai/types";
 import type { TimeHorizon, TradeAction } from "@/lib/paper/types";
+import { SUPPORTED_SYMBOLS } from "@/lib/market/symbols";
+import type { RiskConstraints } from "@/lib/risk/constraints";
+import { computeTradingHeadroom } from "@/lib/risk/headroom";
 
 const ACTIONS: readonly TradeAction[] = ["BUY", "SELL", "HOLD", "SHORT"];
 const HORIZONS: readonly TimeHorizon[] = ["SHORT", "MEDIUM", "LONG"];
@@ -29,6 +32,7 @@ export function createDecisionContext(input: {
   skill?: string;
   snapshot: DecisionContext["snapshot"];
   portfolio: DecisionPortfolioContext;
+  constraints?: Partial<RiskConstraints>;
 }): DecisionContext {
   if (!input.agentId.trim()) {
     throw new AiDecisionError("Decision context requires agentId", "INVALID_CONTEXT");
@@ -54,6 +58,11 @@ export function createDecisionContext(input: {
     snapshotTimestamp: input.snapshot.timestamp,
     snapshot: input.snapshot,
     portfolio: input.portfolio,
+    headroom: computeTradingHeadroom({
+      portfolio: input.portfolio,
+      symbols: SUPPORTED_SYMBOLS,
+      constraints: input.constraints,
+    }),
   };
 }
 
@@ -234,6 +243,7 @@ export async function generateTradeDecision(
     snapshotTimestamp: context.snapshotTimestamp || snapshot.timestamp,
     snapshot,
     portfolio,
+    ...(context.headroom ? { headroom: cloneJson(context.headroom) } : {}),
   };
 
   let response: { text?: string | null };

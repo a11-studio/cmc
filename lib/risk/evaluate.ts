@@ -2,6 +2,11 @@ import { isSupportedSymbol, normalizeSymbol, supportedSymbolsList } from "@/lib/
 import type { MarketSnapshot } from "@/lib/market/types";
 import { isClosedQuantity } from "@/lib/paper/portfolio";
 import type { TradeAction, TradeDecision } from "@/lib/paper/types";
+import {
+  closingAllocationCaps,
+  openingAllocationCaps,
+  roundReasonPercent,
+} from "@/lib/risk/caps";
 import { DEFAULT_RISK_CONSTRAINTS, type RiskConstraints } from "@/lib/risk/constraints";
 import type {
   AgentRiskStatus,
@@ -14,10 +19,6 @@ import type {
 
 const ACTIONS: readonly TradeAction[] = ["BUY", "SELL", "HOLD", "SHORT"];
 const PERCENT_EPSILON = 1e-8;
-
-function roundReasonPercent(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
 
 function passed(code: RiskCheckCode, detail: string): RiskCheck {
   return { code, passed: true, detail };
@@ -263,81 +264,29 @@ export function evaluateRisk(input: RiskInput): RiskResult {
   let limiting: RiskCheckCode = "APPROVED";
   let limitingDetail = `Requested ${roundReasonPercent(requested)}%`;
 
-  if (action === "BUY" || action === "SHORT") {
-    const cashPercent = (portfolio.cash / portfolio.equity) * 100;
-    const maxByCashReserve = cashPercent - constraints.minCashPercent;
-    const maxByNoLeverage = cashPercent;
-    const maxByPosition =
-      action === "SHORT"
-        ? constraints.maxPositionPercent + signedAlloc
-        : constraints.maxPositionPercent - signedAlloc;
-
-    const caps: { code: RiskCheckCode; max: number; detail: string }[] = [
-      {
-        code: "MAX_TRADE_EXCEEDED",
-        max: constraints.maxTradePercent,
-        detail: `Max trade is ${constraints.maxTradePercent}% of equity`,
-      },
-      {
-        code: "MAX_POSITION_EXCEEDED",
-        max: maxByPosition,
-        detail: `Remaining position room in ${symbol} is ${roundReasonPercent(Math.max(0, maxByPosition))}%`,
-      },
-    ];
-
-    if (action === "BUY") {
-      if (constraints.minCashPercent > PERCENT_EPSILON) {
-        caps.push({
-          code: "MIN_CASH_BREACH",
-          max: maxByCashReserve,
-          detail: `Spending more would drop cash below ${constraints.minCashPercent}%`,
+  const caps =
+    action === "BUY" || action === "SHORT"
+      ? openingAllocationCaps({
+          action,
+          symbol,
+          cashPercent: (portfolio.cash / portfolio.equity) * 100,
+          signedAllocationPercent: signedAlloc,
+          constraints,
+        })
+      : closingAllocationCaps({
+          marketValue: existing?.marketValue ?? 0,
+          equity: portfolio.equity,
+          constraints,
         });
-      }
-      caps.push({
-        code: "LEVERAGE_FORBIDDEN",
-        max: maxByNoLeverage,
-        detail: "Spending more than cash would require leverage",
-      });
-    }
 
-    for (const cap of caps) {
-      if (cap.max + PERCENT_EPSILON < allowed) {
-        allowed = Math.max(0, cap.max);
-        limiting = cap.code;
-        limitingDetail = cap.detail;
-        checks.push(failed(cap.code, cap.detail));
-      } else {
-        checks.push(passed(cap.code, cap.detail));
-      }
-    }
-  } else {
-    const marketValue = existing?.marketValue ?? 0;
-    const maxTradeNotional = (constraints.maxTradePercent / 100) * portfolio.equity;
-    const maxByTradeOfPosition = marketValue <= 0 ? 0 : (maxTradeNotional / marketValue) * 100;
-    const maxByNoShort = 100;
-
-    const caps: { code: RiskCheckCode; max: number; detail: string }[] = [
-      {
-        code: "MAX_TRADE_EXCEEDED",
-        max: maxByTradeOfPosition,
-        detail: `Max trade is ${constraints.maxTradePercent}% of equity`,
-      },
-      {
-        code: "SHORTING_FORBIDDEN",
-        max: maxByNoShort,
-        detail: "Cannot sell more than 100% of the position",
-      },
-    ];
-
-    for (const cap of caps) {
-      if (cap.max + PERCENT_EPSILON < allowed) {
-        allowed = Math.max(0, cap.max);
-        limiting = cap.code;
-        limitingDetail = cap.detail;
-        checks.push(failed(cap.code, cap.detail));
-      } else {
-        checks.push(passed(cap.code, cap.detail));
-      }
+  for (const cap of caps) {
+    if (cap.max + PERCENT_EPSILON < allowed) {
+      allowed = Math.max(0, cap.max);
+      limiting = cap.code;
+      limitingDetail = cap.detail;
+      checks.push(failed(cap.code, cap.detail));
+    } else {
+      checks.push(passed(cap.code, cap.detail));
     }
   }
 
