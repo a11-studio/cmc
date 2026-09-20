@@ -42,11 +42,17 @@ export const TRADE_DECISION_JSON_SCHEMA = {
     },
     stopLossPercent: {
       type: "number",
-      description: "Optional suggested stop-loss percent. Not executed in this phase.",
+      minimum: 0,
+      maximum: 100,
+      description:
+        "Optional suggested stop-loss, as a positive percent away from entry. Not a price. Not executed in this phase.",
     },
     takeProfitPercent: {
       type: "number",
-      description: "Optional suggested take-profit percent. Not executed in this phase.",
+      minimum: 0,
+      maximum: 100,
+      description:
+        "Optional suggested take-profit, as a positive percent away from entry. Not a price. Not executed in this phase.",
     },
     timeHorizon: {
       type: "string",

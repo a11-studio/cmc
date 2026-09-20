@@ -352,6 +352,29 @@ describe("validateTradeDecision", () => {
     ).toMatchObject({ stopLossPercent: 5, takeProfitPercent: 10 });
   });
 
+  it("drops an out-of-range stop loss instead of failing the decision", () => {
+    // Gemini occasionally returns a price level or a negative percent here.
+    // The field is decorative, so the trade must survive it.
+    const decision = validateTradeDecision(
+      validDecision({
+        action: "BUY",
+        allocationPercent: 6,
+        stopLossPercent: -8,
+        takeProfitPercent: 80_995,
+      })
+    );
+
+    expect(decision).toMatchObject({ action: "BUY", allocationPercent: 6 });
+    expect(decision.stopLossPercent).toBeUndefined();
+    expect(decision.takeProfitPercent).toBeUndefined();
+  });
+
+  it("still rejects an out-of-range confidence", () => {
+    expect(() => validateTradeDecision(validDecision({ confidence: 140 }))).toThrow(
+      /confidence must be between 0 and 100/
+    );
+  });
+
   it("accepts SHORT", () => {
     expect(
       validateTradeDecision(

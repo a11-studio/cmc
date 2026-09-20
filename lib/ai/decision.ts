@@ -115,12 +115,17 @@ function readPercent(value: unknown, field: string): number {
   return amount;
 }
 
-function readOptionalPercent(value: unknown, field: string): number | undefined {
-  if (value == null) {
+/**
+ * Stop-loss and take-profit are suggestions that nothing executes yet, so a
+ * value outside 0–100 is dropped rather than thrown. Failing here would
+ * discard an otherwise valid decision and cost the agent the whole cycle.
+ */
+function readAdvisoryPercent(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 100) {
     return undefined;
   }
 
-  return readPercent(value, field);
+  return value;
 }
 
 function readStringList(value: unknown, field: string): string[] {
@@ -188,8 +193,8 @@ export function validateTradeDecision(payload: unknown): TradeDecision {
     riskFactors: readStringList(payload.riskFactors, "riskFactors"),
   };
 
-  const stopLossPercent = readOptionalPercent(payload.stopLossPercent, "stopLossPercent");
-  const takeProfitPercent = readOptionalPercent(payload.takeProfitPercent, "takeProfitPercent");
+  const stopLossPercent = readAdvisoryPercent(payload.stopLossPercent);
+  const takeProfitPercent = readAdvisoryPercent(payload.takeProfitPercent);
 
   if (stopLossPercent != null) {
     decision.stopLossPercent = stopLossPercent;
