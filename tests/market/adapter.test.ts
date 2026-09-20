@@ -17,6 +17,30 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe("CoinMarketCapProvider", () => {
+  it("bounds every request with a timeout", async () => {
+    // A stalled connection here once held an agent cycle open for 62 minutes.
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      signals.push(init?.signal);
+
+      return url.includes(CMC_QUOTES_PATH)
+        ? jsonResponse(v3QuotesFixture)
+        : jsonResponse({ status: { error_code: 0 }, data: {} });
+    });
+
+    const provider = new CoinMarketCapProvider({
+      apiKey: "test-secret-key",
+      fetchImpl,
+      createCycleId: () => "cycle-1",
+      now: () => new Date("2026-09-17T00:00:00.000Z"),
+    });
+
+    await provider.getMarketSnapshot(["BTC", "ETH", "SOL", "BNB", "XRP"]);
+
+    expect(signals.length).toBeGreaterThan(0);
+    expect(signals.every((signal) => signal instanceof AbortSignal)).toBe(true);
+  });
+
   it("sends the API key in a header and never in the URL", async () => {
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
       expect(url).not.toContain("test-secret-key");

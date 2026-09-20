@@ -140,7 +140,13 @@ export async function runLiveAgentCycles(options?: { cycleId?: string }): Promis
   const results: AgentCycleResult[] = [];
 
   for (const agent of listLiveAgents()) {
-    results.push(await runLiveAgentCycle(agent.id, options));
+    // One agent throwing used to abandon everyone after it in the list, which
+    // is why whole hours landed with only three or four agents.
+    try {
+      results.push(await runLiveAgentCycle(agent.id, options));
+    } catch (error) {
+      console.error(`Agent cycle threw for ${agent.id}`, error);
+    }
   }
 
   return results;

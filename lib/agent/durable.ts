@@ -21,6 +21,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 /** Max cycle rows loaded per agent on hydrate (keeps PostgREST egress bounded). */
 export const HYDRATE_CYCLE_LIMIT = 72;
 
+/** How long a CLAIMED row may sit before another run may take the slot over. */
+export const STALE_CLAIM_MS = 10 * 60 * 1000;
+
 function throwIfError(error: { message: string } | null, action: string): void {
   if (error) {
     throw new Error(`${action}: ${error.message}`);
@@ -161,7 +164,26 @@ export async function claimAgentCycle(agentId: string, cycleId: string, now = ne
 
   throwIfError(error, "claim cycle");
 
-  return (data?.length ?? 0) > 0;
+  if ((data?.length ?? 0) > 0) {
+    return true;
+  }
+
+  // A run that died before writing its result leaves the row CLAIMED forever,
+  // which burned the slot for good. Take it over once it is clearly abandoned.
+  const abandonedBefore = new Date(now.getTime() - STALE_CLAIM_MS).toISOString();
+
+  const { data: reclaimed, error: reclaimError } = await client
+    .from("agent_cycles")
+    .update({ started_at: now.toISOString() })
+    .eq("agent_id", agentId)
+    .eq("cycle_id", cycleId)
+    .eq("status", "CLAIMED")
+    .lt("started_at", abandonedBefore)
+    .select("cycle_id");
+
+  throwIfError(reclaimError, "reclaim cycle");
+
+  return (reclaimed?.length ?? 0) > 0;
 }
 
 export async function hydrateMomentumAlphaStore(): Promise<AgentCycleStore> {
