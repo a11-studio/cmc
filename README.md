@@ -157,7 +157,7 @@ curl -X POST http://localhost:3000/api/agents/cycle           # every LIVE agent
 curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle  # one agent
 ```
 
-In production a single Vercel cron (`vercel.json`) hits `/api/agents/cycle` every hour, so new agents start trading as soon as they are marked LIVE in the registry.
+In production a Vercel cron (`vercel.json`) hits `/api/agents/cycle` once per day (Hobby plan limit). On Pro you can switch the schedule to hourly (`0 * * * *`). New agents start trading on the next cron run after they are marked LIVE in the registry.
 
 ## Scripts
 
