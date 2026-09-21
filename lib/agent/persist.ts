@@ -8,6 +8,7 @@ import { createPaperAccount } from "@/lib/paper/portfolio";
 import type { PaperAccount, Trade } from "@/lib/paper/types";
 import type { AssetSnapshot, MarketSnapshot } from "@/lib/market/types";
 import type { SupportedSymbol } from "@/lib/market/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AgentRiskStatus } from "@/lib/risk/types";
 
 export const MOMENTUM_ALPHA_DESCRIPTION = "Follows short-term trend while respecting position caps";
@@ -209,18 +210,22 @@ export function reviveCycle(raw: unknown): AgentCycleResult | null {
     execution: cycle.execution ?? null,
   };
 
+  if (!Array.isArray(cycle.events)) {
+    cycle.events = [];
+  }
+
   return cycle;
 }
 
 /**
- * Strips everything a stored cycle duplicates elsewhere: the trace (derived
- * from sibling fields), the venue breakdowns and news (archived in full on
- * market_snapshots), and the account/valuation copies carried by execution.
- * Cuts a row from roughly 14 kB to 2 kB, which is what hydrate reads back.
+ * Strips everything a stored cycle duplicates elsewhere: trace (rebuilt on read),
+ * snapshot (full copy on market_snapshots), per-cycle account (agents + trades),
+ * and events (derived via cycleToActivityEvents). Keeps decision/risk/execution/
+ * valuation for dashboard and detail views.
  */
 export function slimCycleForStorage(cycle: AgentCycleResult): Record<string, unknown> {
   const copy = cloneJson(cycle);
-  const slim = omit(copy, ["trace", "snapshot"]) as Record<string, unknown>;
+  const slim = omit(copy, ["trace", "snapshot", "account", "events"]) as Record<string, unknown>;
 
   if (copy.snapshot?.assets) {
     slim.marketCheckAssets = copy.snapshot.assets
@@ -245,6 +250,49 @@ export function slimAccountForStorage(account: PaperAccount): PaperAccount {
     positions: account.positions.map((position) => ({ ...position })),
     trades: [],
   };
+}
+
+function snapshotNeedsArchivedMarketContext(snapshot: MarketSnapshot | null | undefined): boolean {
+  if (!snapshot?.assets?.length) {
+    return true;
+  }
+
+  const market = snapshot.market;
+
+  if (!market || Object.keys(market).length === 0) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function attachMarketSnapshotIfMissing(
+  client: SupabaseClient,
+  cycle: AgentCycleResult
+): Promise<AgentCycleResult> {
+  if (!snapshotNeedsArchivedMarketContext(cycle.snapshot)) {
+    return cycle;
+  }
+
+  const { data, error } = await client
+    .from("market_snapshots")
+    .select("payload")
+    .eq("cycle_id", cycle.cycleId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`fetch market snapshot: ${error.message}`);
+  }
+
+  const payload = (data as { payload: unknown } | null)?.payload;
+
+  if (!payload || typeof payload !== "object") {
+    return cycle;
+  }
+
+  const revived = reviveCycle({ ...cycle, snapshot: payload });
+
+  return revived ?? cycle;
 }
 
 export function mapTradeRow(row: {

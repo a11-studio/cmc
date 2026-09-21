@@ -6,6 +6,7 @@ import { invalidateAgentEquityHistoryCache } from "@/lib/agent/equity-history";
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
 import { loadPaperAccountForDashboard, loadPaperAccountForExecution } from "@/lib/agent/hydrate-account";
 import {
+  attachMarketSnapshotIfMissing,
   createStoreFromPersistedState,
   persistArenaState,
   persistedStateFromRows,
@@ -80,33 +81,6 @@ export function createSupabaseArenaWriter(client: SupabaseClient): ArenaWriter {
       throwIfError(error, `delete ${table}`);
     },
   };
-}
-
-async function attachMarketSnapshotIfMissing(
-  client: SupabaseClient,
-  cycle: AgentCycleResult
-): Promise<AgentCycleResult> {
-  if (cycle.snapshot?.assets?.length) {
-    return cycle;
-  }
-
-  const { data, error } = await client
-    .from("market_snapshots")
-    .select("payload")
-    .eq("cycle_id", cycle.cycleId)
-    .maybeSingle();
-
-  throwIfError(error, "fetch market snapshot");
-
-  const payload = (data as { payload: unknown } | null)?.payload;
-
-  if (!payload || typeof payload !== "object") {
-    return cycle;
-  }
-
-  const revived = reviveCycle({ ...cycle, snapshot: payload });
-
-  return revived ?? cycle;
 }
 
 export async function fetchPersistedCycle(

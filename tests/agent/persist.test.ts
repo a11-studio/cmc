@@ -242,6 +242,8 @@ describe("Momentum Alpha persistence mapping", () => {
 
     expect(payload.trace).toBeUndefined();
     expect(payload.snapshot).toBeUndefined();
+    expect(payload.account).toBeUndefined();
+    expect(payload.events).toBeUndefined();
     expect((payload.execution as Record<string, unknown>).account).toBeUndefined();
     expect(checkAssets).toHaveLength(5);
 
