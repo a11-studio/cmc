@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { AGENT_CYCLE_INTERVAL_MS } from "@/lib/agent/constants";
 import type { MarketSnapshot, SupportedSymbol } from "@/lib/market/types";
 
@@ -35,12 +35,23 @@ type HistoryStore = {
   points: QuoteHistoryPoint[];
 };
 
+// Literal path for Turbopack static tracing (local dev cache only; disabled on Vercel).
+const QUOTE_HISTORY_FILE = ".data/quote-history.json";
+
 function persistEnabled() {
-  return process.env.VITEST !== "true" && process.env.NODE_ENV !== "test";
+  if (process.env.VITEST === "true" || process.env.NODE_ENV === "test") {
+    return false;
+  }
+  // Serverless filesystem is ephemeral; keep hourly context in memory per instance.
+  if (process.env.VERCEL === "1") {
+    return false;
+  }
+  return true;
 }
 
 function historyFilePath() {
-  return process.env.ARENA_QUOTE_HISTORY_PATH ?? join(process.cwd(), ".data", "quote-history.json");
+  const override = process.env.ARENA_QUOTE_HISTORY_PATH?.trim();
+  return override || QUOTE_HISTORY_FILE;
 }
 
 function isHistoryPoint(value: unknown): value is QuoteHistoryPoint {
@@ -57,8 +68,13 @@ function loadFromDisk(): QuoteHistoryPoint[] {
     return [];
   }
 
+  const override = process.env.ARENA_QUOTE_HISTORY_PATH?.trim();
+
   try {
-    const parsed = JSON.parse(readFileSync(historyFilePath(), "utf8")) as unknown;
+    const raw = override
+      ? readFileSync(override, "utf8")
+      : readFileSync(QUOTE_HISTORY_FILE, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed) ? parsed.filter(isHistoryPoint) : [];
   } catch {
     return [];
