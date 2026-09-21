@@ -7,7 +7,7 @@ import { RiskOverviewCard } from "@/components/arena/risk-overview-card";
 import { PauseTradingButton } from "@/components/agents/pause-trading-button";
 import { PersistenceNotice } from "@/components/shared/persistence-notice";
 import { combineEquitySeries } from "@/lib/charts/equity";
-import type { MomentumAlphaView } from "@/lib/agent/view";
+import { isArenaDebugControlsEnabled, type MomentumAlphaView } from "@/lib/agent/view";
 import type { LeaderboardAgent } from "@/types/arena";
 
 export function ArenaDashboard({
@@ -42,7 +42,11 @@ export function ArenaDashboard({
           startingCapital={summary.startingCapital}
           currentEquity={summary.totalEquity}
           series={combineEquitySeries(books)}
-          action={<PauseTradingButton status={paused ? "PAUSED" : "ACTIVE"} compact />}
+          action={
+            isArenaDebugControlsEnabled() ? (
+              <PauseTradingButton status={paused ? "PAUSED" : "ACTIVE"} compact />
+            ) : undefined
+          }
         />
         <AgentAllocationCard books={books} />
         <LatestDecisionCard decisions={books.flatMap((book) => book.decisions)} />

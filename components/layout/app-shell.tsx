@@ -4,7 +4,13 @@ import { IconRail } from "@/components/layout/icon-rail";
 import { LiveRefresh } from "@/components/arena/live-refresh";
 import { ShellChrome } from "@/components/layout/shell-chrome";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  showDebugControls = false,
+}: {
+  children: ReactNode;
+  showDebugControls?: boolean;
+}) {
   return (
     <div className="min-h-dvh bg-background">
       <div className="lg:grid lg:grid-cols-[104px_minmax(0,1fr)]">
@@ -12,10 +18,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex h-[72px] items-center justify-center">
             <ArenaBrand showWordmark={false} />
           </div>
-          <IconRail />
+          <IconRail showDebugControls={showDebugControls} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
-          <ShellChrome />
+          <ShellChrome showDebugControls={showDebugControls} />
           <main className="min-w-0 flex-1 px-3 pb-3">{children}</main>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isArenaDebugControlsEnabled } from "@/lib/agent/view";
 import { listLiveAgents } from "@/lib/agents/registry";
 import { setLiveAgentTradingStatus } from "@/lib/arena/data";
 
@@ -15,6 +16,14 @@ export async function setMomentumAlphaTradingAction(
   formData: FormData
 ): Promise<TradingControlState> {
   void previousState;
+
+  if (!isArenaDebugControlsEnabled()) {
+    return {
+      ok: false,
+      status: "ACTIVE",
+      message: "Trading controls are not available in production.",
+    };
+  }
 
   const intent = formData.get("intent");
   const agentId = String(formData.get("agentId") ?? "").trim();

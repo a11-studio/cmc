@@ -1,5 +1,7 @@
+import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { isArenaDebugControlsEnabled } from "@/lib/agent/view";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getServerSecretStatus } from "@/lib/env.server";
 
@@ -8,6 +10,9 @@ export const metadata = {
 };
 
 export default function SettingsPage() {
+  if (!isArenaDebugControlsEnabled()) {
+    notFound();
+  }
   const publicConfigured = isSupabaseConfigured();
   const secrets = getServerSecretStatus();
 

@@ -17,6 +17,7 @@ export {
   cycleToActivityEvents,
   cycleToDecisionRecord,
   isManualCycleEnabled,
+  isArenaDebugControlsEnabled,
   serializeTriggerResult,
 } from "@/lib/agent/view";
 export type {

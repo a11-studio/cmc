@@ -3,16 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isActiveNavPath, PRIMARY_NAV } from "@/lib/layout/nav";
+import { isActiveNavPath, primaryNavForAudience } from "@/lib/layout/nav";
 import { cn } from "@/lib/utils";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  onNavigate,
+  showDebugControls = false,
+}: {
+  onNavigate?: () => void;
+  showDebugControls?: boolean;
+}) {
   const pathname = usePathname();
+  const items = primaryNavForAudience(showDebugControls);
 
   return (
     <nav aria-label="Primary" className="px-3 pt-3">
       <ul className="space-y-1">
-        {PRIMARY_NAV.map((item) => {
+        {items.map((item) => {
           const active = isActiveNavPath(pathname, item.match);
 
           return (

@@ -3,15 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isActiveNavPath, PRIMARY_NAV } from "@/lib/layout/nav";
+import { isActiveNavPath, primaryNavForAudience } from "@/lib/layout/nav";
 import { cn } from "@/lib/utils";
 
-export function IconRail() {
+export function IconRail({ showDebugControls = false }: { showDebugControls?: boolean }) {
   const pathname = usePathname();
+  const items = primaryNavForAudience(showDebugControls);
 
   return (
     <nav aria-label="Primary" className="flex flex-col items-center px-3 pb-4">
-      {PRIMARY_NAV.map((item) => {
+      {items.map((item) => {
         const active = isActiveNavPath(pathname, item.match);
 
         return (

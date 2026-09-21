@@ -10,17 +10,19 @@ export function TopBar({
   serverNow,
   autoRunCycle,
   tradingPaused,
+  showDebugControls,
 }: {
   quotes: MarketTickerQuote[];
   lastCompletedAt?: string | null;
   serverNow: string;
   autoRunCycle?: boolean;
   tradingPaused?: boolean;
+  showDebugControls?: boolean;
 }) {
   return (
     <header className="flex h-[72px] shrink-0 items-center gap-4 bg-[#060606] pr-3 pl-3 lg:pl-0">
       <div className="flex items-center gap-3 lg:hidden">
-        <MobileNav />
+        <MobileNav showDebugControls={showDebugControls} />
         <ArenaBrand showWordmark={false} />
       </div>
       <p className="hidden min-w-[148px] shrink-0 xl:block">

@@ -28,7 +28,7 @@ import { AssetTicker, CashTicker } from "@/components/market/asset-icon";
 import { formatNumber, formatUsd } from "@/lib/format";
 import { PersistenceNotice } from "@/components/shared/persistence-notice";
 import { EmptyState } from "@/components/shared/empty-state";
-import { isManualCycleEnabled } from "@/lib/agent/view";
+import { isArenaDebugControlsEnabled, isManualCycleEnabled } from "@/lib/agent/view";
 import { findAgentDefinition } from "@/lib/agents/registry";
 import { getArenaAgents, getArenaPersistenceMode, getLiveOrSampleBook } from "@/lib/arena/data";
 import type { ArenaAgentDefinition } from "@/lib/agents/types";
@@ -106,7 +106,9 @@ export default async function AgentDetailPage({
         {live ? (
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center justify-end gap-2">
-              <PauseTradingButton status={agent.status} agentId={agent.id} compact />
+              {isArenaDebugControlsEnabled() ? (
+                <PauseTradingButton status={agent.status} agentId={agent.id} compact />
+              ) : null}
               {isManualCycleEnabled() ? <RunCycleButton compact agentId={agent.id} /> : null}
             </div>
             {isManualCycleEnabled() ? (

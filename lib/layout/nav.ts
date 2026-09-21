@@ -39,6 +39,14 @@ export const PRIMARY_NAV = [
 
 export type PrimaryNavItem = (typeof PRIMARY_NAV)[number];
 
+export function primaryNavForAudience(debugControls: boolean): PrimaryNavItem[] {
+  if (debugControls) {
+    return [...PRIMARY_NAV];
+  }
+
+  return PRIMARY_NAV.filter((item) => item.match !== "settings");
+}
+
 export function isActiveNavPath(pathname: string, match: PrimaryNavItem["match"]) {
   if (match === "home") {
     return pathname === "/";

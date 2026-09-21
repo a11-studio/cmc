@@ -7,6 +7,7 @@ import {
   buildMomentumAlphaView,
   cycleToActivityEvents,
   cycleToDecisionRecord,
+  isArenaDebugControlsEnabled,
   isManualCycleEnabled,
   serializeCycle,
   serializeMomentumAlphaApi,
@@ -199,6 +200,12 @@ describe("Momentum Alpha view serialization", () => {
     expect(isManualCycleEnabled({ NODE_ENV: "test" })).toBe(true);
     expect(isManualCycleEnabled({ NODE_ENV: "production" })).toBe(false);
     expect(isManualCycleEnabled({ NODE_ENV: "production", MANUAL_CYCLE_ENABLED: "true" })).toBe(true);
+  });
+
+  it("exposes pause and settings controls only outside production", () => {
+    expect(isArenaDebugControlsEnabled({ NODE_ENV: "development" })).toBe(true);
+    expect(isArenaDebugControlsEnabled({ NODE_ENV: "test" })).toBe(true);
+    expect(isArenaDebugControlsEnabled({ NODE_ENV: "production" })).toBe(false);
   });
 
   it("manual trigger serialization uses the cycle result, not a second engine", async () => {

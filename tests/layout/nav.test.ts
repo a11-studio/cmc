@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isActiveNavPath, PRIMARY_NAV } from "@/lib/layout/nav";
+import { isActiveNavPath, PRIMARY_NAV, primaryNavForAudience } from "@/lib/layout/nav";
 
 describe("primary navigation", () => {
   it("keeps Home, Research, Activities, Winners, Chat, and Settings", () => {
@@ -11,6 +11,14 @@ describe("primary navigation", () => {
       "Chat",
       "Settings",
     ]);
+    expect(primaryNavForAudience(false).map((item) => item.label)).toEqual([
+      "Home",
+      "Research",
+      "Activities",
+      "Winners",
+      "Chat",
+    ]);
+    expect(primaryNavForAudience(true).map((item) => item.label)).toContain("Settings");
     expect(isActiveNavPath("/", "home")).toBe(true);
     expect(isActiveNavPath("/agents/momentum-alpha", "home")).toBe(false);
     expect(isActiveNavPath("/research", "research")).toBe(true);

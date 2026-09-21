@@ -15,7 +15,7 @@ type ShellPayload = {
   tradingPaused?: boolean;
 };
 
-export function ShellChrome() {
+export function ShellChrome({ showDebugControls = false }: { showDebugControls?: boolean }) {
   const [payload, setPayload] = useState<ShellPayload | null>(null);
 
   const load = useCallback(async () => {
@@ -49,6 +49,7 @@ export function ShellChrome() {
       serverNow={payload?.serverNow ?? PLACEHOLDER_NOW}
       autoRunCycle={payload?.autoRunCycle}
       tradingPaused={payload?.tradingPaused}
+      showDebugControls={showDebugControls}
     />
   );
 }

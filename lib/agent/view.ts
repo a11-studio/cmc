@@ -414,6 +414,11 @@ export function isManualCycleEnabled(env: { NODE_ENV?: string; MANUAL_CYCLE_ENAB
   return env.NODE_ENV !== "production" || env.MANUAL_CYCLE_ENABLED === "true";
 }
 
+/** Pause trading, Settings, and other operator UI — local/dev only, not public production. */
+export function isArenaDebugControlsEnabled(env: { NODE_ENV?: string } = process.env): boolean {
+  return env.NODE_ENV !== "production";
+}
+
 function agentStatus(storeStatus: LeaderboardAgent["status"], cycles: readonly AgentCycleResult[]): LeaderboardAgent["status"] {
   if (storeStatus === "PAUSED") {
     return "PAUSED";
