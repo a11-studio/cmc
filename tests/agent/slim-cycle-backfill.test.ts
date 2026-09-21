@@ -31,7 +31,17 @@ function richPayload(): AgentCycleResult {
     },
     riskResult: null,
     execution: null,
-    valuation: { portfolio: { equity: 10_000, cash: 10_000 }, positions: [] },
+    valuation: {
+      portfolio: {
+        equity: 10_000,
+        cash: 10_000,
+        realizedPnl: 0,
+        unrealizedPnl: 0,
+        returnPercent: 0,
+        drawdownPercent: 0,
+      },
+      positions: [],
+    },
     account: {
       initialCapital: 10_000,
       cash: 10_000,
