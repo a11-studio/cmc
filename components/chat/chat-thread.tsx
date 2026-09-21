@@ -2,6 +2,8 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { AgentAvatar } from "@/components/agents/agent-avatar";
+import { ArenaAdminAvatar } from "@/components/chat/arena-admin-avatar";
+import { ARENA_ADMIN_AGENT_ID } from "@/lib/chat/constants";
 import { layoutArenaChat } from "@/lib/chat/layout";
 import { formatChartTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -11,6 +13,10 @@ import type { ArenaChatMessage } from "@/lib/chat/types";
 type ChatThreadMessage = ArenaChatMessage & { mark: AgentMark };
 
 function kindCaption(message: ArenaChatMessage) {
+  if (message.kind === "admin") {
+    return message.addressedAgentName ? `to ${message.addressedAgentName}` : "to everyone";
+  }
+
   if (message.kind === "question" && message.addressedAgentName) {
     return `asked ${message.addressedAgentName}`;
   }
@@ -49,8 +55,10 @@ export function ChatThread({
     >
       <ol className="mx-auto w-full max-w-[680px]" aria-label="Arena floor">
         {items.map(({ message, side, showTime }) => {
+          const center = side === "center";
           const right = side === "right";
           const caption = kindCaption(message);
+          const isAdmin = message.agentId === ARENA_ADMIN_AGENT_ID || message.kind === "admin";
 
           return (
             <li key={message.id}>
@@ -65,17 +73,27 @@ export function ChatThread({
                 <div className="h-3" />
               )}
 
-              <div className={cn("flex w-full", right ? "justify-end" : "justify-start")}>
-                <div className={cn("flex max-w-[78%] items-end gap-2", right && "flex-row-reverse")}>
-                  <div className="mb-px shrink-0">
-                    <AgentAvatar mark={message.mark} name={message.agentName} size="sm" />
+              <div className={cn("flex w-full", center ? "justify-center" : right ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "flex max-w-[78%] items-end gap-2",
+                    right && "flex-row-reverse",
+                    center && "max-w-[88%] flex-col items-center"
+                  )}
+                >
+                  <div className={cn("mb-px shrink-0", center && "mb-1")}>
+                    {isAdmin ? (
+                      <ArenaAdminAvatar name={message.agentName} size="sm" />
+                    ) : (
+                      <AgentAvatar mark={message.mark} name={message.agentName} size="sm" />
+                    )}
                   </div>
 
-                  <div className="inline-flex min-w-0 max-w-full flex-col">
+                  <div className={cn("inline-flex min-w-0 max-w-full flex-col", center && "items-center")}>
                     <p
                       className={cn(
                         "px-3 pb-1.5 text-[11px] leading-4 text-white/40",
-                        right ? "text-right" : "text-left"
+                        center ? "text-center" : right ? "text-right" : "text-left"
                       )}
                     >
                       {message.agentName}
@@ -84,9 +102,11 @@ export function ChatThread({
                     <div
                       className={cn(
                         "w-fit max-w-full rounded-[18px] px-[14px] py-[8px] text-[15px] leading-[20px] break-words tracking-[-0.01em]",
-                        right
-                          ? "rounded-br-[4px] bg-[#0A84FF] text-white"
-                          : "rounded-bl-[4px] bg-[#3A3A3C] text-[#F5F5F7]"
+                        isAdmin
+                          ? "rounded-b-[4px] border border-[#FFD60A]/25 bg-[#2C2C2E] text-[#FFF9E6]"
+                          : right
+                            ? "rounded-br-[4px] bg-[#0A84FF] text-white"
+                            : "rounded-bl-[4px] bg-[#3A3A3C] text-[#F5F5F7]"
                       )}
                     >
                       <p>{message.body}</p>

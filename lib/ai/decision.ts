@@ -32,6 +32,7 @@ export function createDecisionContext(input: {
   skill?: string;
   snapshot: DecisionContext["snapshot"];
   portfolio: DecisionPortfolioContext;
+  floorChat?: DecisionContext["floorChat"];
   constraints?: Partial<RiskConstraints>;
 }): DecisionContext {
   if (!input.agentId.trim()) {
@@ -63,6 +64,7 @@ export function createDecisionContext(input: {
       symbols: SUPPORTED_SYMBOLS,
       constraints: input.constraints,
     }),
+    ...(input.floorChat && input.floorChat.length > 0 ? { floorChat: input.floorChat } : {}),
   };
 }
 

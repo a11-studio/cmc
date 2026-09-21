@@ -1,6 +1,7 @@
 import "server-only";
 
 import { findAgentDefinition } from "@/lib/agents/registry";
+import { ARENA_ADMIN_AGENT_ID, ARENA_ADMIN_DISPLAY_NAME } from "@/lib/chat/constants";
 import { isSupabasePersistenceConfigured } from "@/lib/env.server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isArenaChatKind } from "@/lib/chat/speak";
@@ -12,6 +13,10 @@ const MEMORY_CAP = 200;
 function displayName(agentId: string | null): string | null {
   if (!agentId) {
     return null;
+  }
+
+  if (agentId === ARENA_ADMIN_AGENT_ID) {
+    return ARENA_ADMIN_DISPLAY_NAME;
   }
 
   return findAgentDefinition(agentId)?.displayName ?? agentId;

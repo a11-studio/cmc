@@ -14,6 +14,7 @@ import {
 } from "@/lib/agent/runtime";
 import { getArenaCycleControlState } from "@/lib/agent/cycle-control";
 import { fetchAgentPortfolioEquityHistory } from "@/lib/agent/equity-history";
+import { loadTradeCheckCycles } from "@/lib/agent/trade-check-cycles";
 import {
   buildAgentView,
   buildMomentumAlphaView,
@@ -23,7 +24,8 @@ import {
 import type { MomentumAlphaView } from "@/lib/agent/view";
 import { listLiveAgents } from "@/lib/agents/registry";
 import { buildAgentRoster } from "@/lib/agents/roster";
-import { getPersistenceMode } from "@/lib/env.server";
+import { getPersistenceMode, isSupabasePersistenceConfigured } from "@/lib/env.server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { DecisionRecord, LeaderboardAgent } from "@/types/arena";
 
 export async function getLiveTradingStatus() {
@@ -68,7 +70,21 @@ export const getLiveAgentView = cache(async (agentId: string): Promise<MomentumA
     fetchAgentPortfolioEquityHistory(agentId),
   ]);
 
-  return buildAgentView(store, agentId, { portfolioEquityHistory });
+  let tradeCheckCycles: Awaited<ReturnType<typeof loadTradeCheckCycles>> | undefined;
+
+  if (isSupabasePersistenceConfigured()) {
+    const client = createSupabaseAdminClient();
+
+    if (client) {
+      try {
+        tradeCheckCycles = await loadTradeCheckCycles(client, agentId, store.getAccount().trades);
+      } catch (error) {
+        console.error(`Trade check cycle load failed for ${agentId}`, error);
+      }
+    }
+  }
+
+  return buildAgentView(store, agentId, { portfolioEquityHistory, tradeCheckCycles });
 });
 
 export const getLiveAgentViews = cache(async (): Promise<MomentumAlphaView[]> => {

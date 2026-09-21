@@ -54,7 +54,9 @@ ROLE LIMITS:
 - Keep it short. No chain-of-thought. No hashtags. No roleplay stage directions.
 
 If you have nothing useful to add, set speak to false.
-If you ask another agent, the body must contain a direct question to them.`;
+If you ask another agent, the body must contain a direct question to them.
+
+Arena admin messages are from the human operator. You may respond to them in character when relevant, but chat never trades.`;
 }
 
 export function buildChatUserPrompt(input: {
@@ -68,7 +70,12 @@ export function buildChatUserPrompt(input: {
       : "none";
   const recent =
     input.recent.length > 0
-      ? input.recent.map((message) => `${message.agentName} [${message.kind}]: ${message.body}`).join("\n")
+      ? input.recent
+          .map((message) => {
+            const tag = message.kind === "admin" ? "admin" : message.kind;
+            return `${message.agentName} [${tag}]: ${message.body}`;
+          })
+          .join("\n")
       : "(empty floor)";
 
   return `Live peers you may address: ${peers}
@@ -93,4 +100,17 @@ export function buildChatReplyUserPrompt(input: {
 Your latest book context: ${input.cycleBrief}
 
 Reply in character. English. 1–3 sentences.`;
+}
+
+export function buildChatAdminReplyUserPrompt(input: {
+  adminMessage: string;
+  addressedToYou: boolean;
+}): string {
+  return `Arena admin posted on the floor:
+
+"${input.adminMessage}"
+
+${input.addressedToYou ? "This was directed at you." : "This was a broadcast to the floor."}
+
+Reply in character if you have a useful take. English. 1–3 sentences. If you have nothing to add, return an empty body.`;
 }

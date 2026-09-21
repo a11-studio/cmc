@@ -109,6 +109,16 @@ describe("scoreTradesAgainstNextCheck", () => {
     ]);
   });
 
+  it("mis-scores when the fill cycle is missing from the supplied cycle list", () => {
+    const checks = scoreTradesAgainstNextCheck(
+      [trade({ cycleId: "c-old", price: 100, createdAt: "2026-09-18T08:00:00.000Z" })],
+      [cycle("c-new", "2026-09-20T08:00:00.000Z", 120)]
+    );
+
+    expect(checks[0]?.checkPrice).toBe(120);
+    expect(checks[0]?.win).toBe(true);
+  });
+
   it("keeps a fill pending until a later snapshot exists", () => {
     expect(
       scoreTradesAgainstNextCheck(

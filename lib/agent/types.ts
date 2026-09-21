@@ -104,6 +104,7 @@ export type AgentCycleStore = {
 
 export type AgentCycleDependencies = {
   getMarketSnapshot: (symbols: string[]) => Promise<MarketSnapshot>;
+  loadFloorChatForAgent?: (agentId: string) => Promise<DecisionContext["floorChat"]>;
   generateTradeDecision: (context: DecisionContext) => Promise<TradeDecision>;
   evaluateRisk: (input: RiskInput) => RiskResult;
   executePaperDecision: (

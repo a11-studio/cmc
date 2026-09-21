@@ -462,7 +462,11 @@ export function buildEquitySeries(
 export function buildAgentView(
   store: Pick<AgentCycleStore, "getAccount" | "getAgentStatus" | "listCycles" | "getDayStartEquity">,
   agentId: string = MOMENTUM_ALPHA_AGENT.id,
-  options?: { portfolioEquityHistory?: readonly EquityCurvePoint[] }
+  options?: {
+    portfolioEquityHistory?: readonly EquityCurvePoint[];
+    /** Full cycle chain for trade-check heatmap (see loadTradeCheckCycles). */
+    tradeCheckCycles?: readonly AgentCycleResult[];
+  }
 ): MomentumAlphaView {
   const definition = findAgentDefinition(agentId);
   const account = store.getAccount();
@@ -528,7 +532,7 @@ export function buildAgentView(
     equitySeries,
     latestCycle: serialized.at(-1) ?? null,
     hasCycles: cycles.length > 0,
-    tradeChecks: scoreBookTradeChecks(account.trades, cycles),
+    tradeChecks: scoreBookTradeChecks(account.trades, options?.tradeCheckCycles ?? cycles),
   };
 }
 

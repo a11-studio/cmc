@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "backfill:slim-cycles": "node --env-file=.env.local scripts/backfill-slim-cycles.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.23.0",

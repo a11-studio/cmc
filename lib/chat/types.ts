@@ -1,4 +1,4 @@
-export type ArenaChatKind = "take" | "question" | "reply";
+export type ArenaChatKind = "take" | "question" | "reply" | "admin";
 
 export type ArenaChatMessage = {
   id: string;

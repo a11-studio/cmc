@@ -2,7 +2,9 @@ import type { AgentCycleResult } from "@/lib/agent/types";
 import type { ArenaChatKind, ArenaChatTurn } from "@/lib/chat/types";
 import type { ArenaAgentDefinition } from "@/lib/agents/types";
 
-const KINDS: readonly ArenaChatKind[] = ["take", "question", "reply"];
+const KINDS: readonly ArenaChatKind[] = ["take", "question", "reply", "admin"];
+
+export const ARENA_ADMIN_MESSAGE_MAX_LENGTH = 480;
 
 export function shouldSpeakThisCycle(cycleId: string): boolean {
   let hash = 0;

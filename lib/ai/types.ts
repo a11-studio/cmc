@@ -17,6 +17,13 @@ export type DecisionPortfolioContext = {
   positions: readonly DecisionPositionContext[];
 };
 
+export type DecisionFloorMessage = {
+  from: string;
+  kind: "admin" | "take" | "question" | "reply";
+  body: string;
+  directedAtYou: boolean;
+};
+
 export type DecisionContext = {
   agentId: string;
   agentName: string;
@@ -27,6 +34,7 @@ export type DecisionContext = {
   snapshot: MarketSnapshot;
   portfolio: DecisionPortfolioContext;
   headroom?: TradingHeadroom;
+  floorChat?: readonly DecisionFloorMessage[];
 };
 
 export type GeminiGenerateContentRequest = {

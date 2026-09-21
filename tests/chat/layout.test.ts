@@ -40,4 +40,24 @@ describe("arena chat layout", () => {
     expect(items[1]?.showTime).toBe(false);
     expect(items[2]?.showTime).toBe(true);
   });
+
+  it("centers admin messages", () => {
+    const items = layoutArenaChat([
+      {
+        id: "a",
+        agentId: "arena-admin",
+        kind: "admin",
+        createdAt: "2026-09-18T10:30:00.000Z",
+      },
+      {
+        id: "b",
+        agentId: "momentum-alpha",
+        kind: "reply",
+        createdAt: "2026-09-18T10:30:02.000Z",
+      },
+    ]);
+
+    expect(items[0]?.side).toBe("center");
+    expect(items[1]?.side).toBe("left");
+  });
 });

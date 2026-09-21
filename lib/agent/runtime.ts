@@ -58,6 +58,12 @@ function cycleDependencies(store: AgentCycleStore): AgentCycleDependencies {
     async getMarketSnapshot(symbols) {
       return createMarketDataProvider().getMarketSnapshot(symbols);
     },
+    async loadFloorChatForAgent(agentId) {
+      const { floorChatForAgent } = await import("@/lib/chat/floor");
+      const { listArenaChatMessages } = await import("@/lib/chat/store");
+      const recent = await listArenaChatMessages(25);
+      return floorChatForAgent(agentId, recent);
+    },
     async generateTradeDecision(context) {
       return createGeminiDecisionEngine().generateTradeDecision(context);
     },

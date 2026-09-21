@@ -212,6 +212,8 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
       return finish();
     }
 
+    const floorChat = deps.loadFloorChatForAgent ? await deps.loadFloorChatForAgent(agent.id) : undefined;
+
     const decisionContext = createDecisionContext({
       agentId: agent.id,
       agentName: definition.displayName,
@@ -219,6 +221,7 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
       skill,
       snapshot,
       portfolio: toDecisionPortfolio(valuation),
+      floorChat,
     });
 
     push("ANALYZING", "Requesting TradeDecision from Gemini");

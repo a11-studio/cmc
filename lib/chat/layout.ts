@@ -1,6 +1,6 @@
 import type { ArenaChatKind, ArenaChatMessage } from "@/lib/chat/types";
 
-export type ChatSide = "left" | "right";
+export type ChatSide = "left" | "right" | "center";
 
 export type ChatLayoutItem<T extends Pick<ArenaChatMessage, "id" | "agentId" | "createdAt" | "kind">> = {
   message: T;
@@ -18,7 +18,11 @@ function sideForMessage(
   message: Pick<ArenaChatMessage, "agentId" | "kind">,
   previous: { agentId: string; kind: ArenaChatKind; side: ChatSide } | null
 ): ChatSide {
-  if (!previous) {
+  if (message.kind === "admin") {
+    return "center";
+  }
+
+  if (!previous || previous.kind === "admin") {
     return "left";
   }
 

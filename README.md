@@ -146,6 +146,7 @@ Only `CMC_API_KEY` and `GEMINI_API_KEY` are required to see agents trade. Withou
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Persistence and realtime |
 | `SUPABASE_SERVICE_ROLE_KEY` | No | Server-side writes |
 | `CRON_SECRET` | No | When set, cycle endpoints require `Authorization: Bearer <secret>` |
+| `ARENA_ADMIN_CHAT` | No | Set to `true` in production to show the admin composer on `/chat` (on by default in development) |
 
 Never put a secret in a `NEXT_PUBLIC_*` variable. The Settings page reports which variables are present without revealing their values.
 
