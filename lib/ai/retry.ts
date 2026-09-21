@@ -1,11 +1,12 @@
 import { generateTradeDecision } from "@/lib/ai/decision";
 import { resolveGeminiModels } from "@/lib/ai/config";
-import { isRetryableGeminiError, mapGeminiError } from "@/lib/ai/errors";
+import { AiDecisionError, isRetryableGeminiError, mapGeminiError } from "@/lib/ai/errors";
 import type { DecisionContext, GenerateTradeDecisionOptions, TradeDecision } from "@/lib/ai/types";
 
 export type GenerateTradeDecisionWithFallbackOptions = GenerateTradeDecisionOptions & {
   models?: string[];
-  attemptsPerModel?: number;
+  /** Max attempts on the same model when rate-limited (other failures switch model immediately). */
+  rateLimitAttemptsPerModel?: number;
   delaysMs?: number[];
   sleep?: (ms: number) => Promise<void>;
 };
@@ -18,42 +19,73 @@ function defaultSleep(ms: number): Promise<void> {
   });
 }
 
+function maxAttemptsOnModel(error: AiDecisionError): number {
+  return error.code === "GEMINI_RATE_LIMIT" ? 2 : 1;
+}
+
 export async function generateTradeDecisionWithFallback(
   context: DecisionContext,
   options: GenerateTradeDecisionWithFallbackOptions
 ): Promise<TradeDecision> {
-  const models = (options.models?.length ? options.models : [options.model?.trim() || resolveGeminiModels()[0]!]).filter(
-    (model) => model.trim()
-  );
-  const attemptsPerModel = Math.max(1, options.attemptsPerModel ?? 2);
+  const models = (
+    options.models?.length ? options.models : [options.model?.trim() || resolveGeminiModels()[0]!]
+  ).filter((model) => model.trim());
+
+  if (models.length === 0) {
+    throw new AiDecisionError("No Gemini models configured", "MODEL_UNAVAILABLE");
+  }
+
+  const rateLimitAttemptsPerModel = Math.max(1, options.rateLimitAttemptsPerModel ?? 2);
   const delaysMs = options.delaysMs ?? DEFAULT_DELAYS_MS;
   const sleep = options.sleep ?? defaultSleep;
 
-  let lastError: unknown;
+  let lastError: AiDecisionError | undefined;
 
   for (const [modelIndex, model] of models.entries()) {
-    for (let attempt = 0; attempt < attemptsPerModel; attempt += 1) {
+    let attempt = 0;
+    let maxAttempts = 1;
+
+    while (attempt < maxAttempts) {
       try {
         return await generateTradeDecision(context, {
           generateContent: options.generateContent,
           model,
         });
       } catch (error) {
-        lastError = mapGeminiError(error);
-        const lastAttempt = attempt === attemptsPerModel - 1 && modelIndex === models.length - 1;
+        const mapped = mapGeminiError(error);
+        lastError = mapped;
 
-        if (!isRetryableGeminiError(lastError) || lastAttempt) {
-          throw lastError;
+        if (!isRetryableGeminiError(mapped)) {
+          throw mapped;
         }
 
-        const delay = delaysMs[Math.min(attempt, delaysMs.length - 1)] ?? 0;
+        maxAttempts = Math.min(
+          maxAttemptsOnModel(mapped),
+          mapped.code === "GEMINI_RATE_LIMIT" ? rateLimitAttemptsPerModel : 1
+        );
 
-        if (delay > 0) {
-          await sleep(delay);
+        const lastModel = modelIndex === models.length - 1;
+        const canRetryModel = attempt < maxAttempts - 1;
+
+        if (canRetryModel) {
+          const delay = delaysMs[Math.min(attempt, delaysMs.length - 1)] ?? 0;
+          attempt += 1;
+
+          if (delay > 0) {
+            await sleep(delay);
+          }
+
+          continue;
         }
+
+        if (lastModel) {
+          throw mapped;
+        }
+
+        break;
       }
     }
   }
 
-  throw mapGeminiError(lastError);
+  throw lastError ?? new AiDecisionError("Gemini request failed", "GEMINI_UNAVAILABLE");
 }

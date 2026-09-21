@@ -60,6 +60,17 @@ describe("Gemini model fallbacks", () => {
     ).toEqual(["gemini-2.5-flash", "gemini-3.5-flash", "gemini-2.5-flash-lite"]);
   });
 
+  it("uses built-in fallbacks when GEMINI_FALLBACK_MODELS is empty", () => {
+    expect(resolveGeminiModels({ GEMINI_FALLBACK_MODELS: "" })).toEqual([
+      DEFAULT_GEMINI_MODEL,
+      ...DEFAULT_GEMINI_FALLBACK_MODELS,
+    ]);
+    expect(resolveGeminiModels({ GEMINI_FALLBACK_MODELS: "   " })).toEqual([
+      DEFAULT_GEMINI_MODEL,
+      ...DEFAULT_GEMINI_FALLBACK_MODELS,
+    ]);
+  });
+
   it("treats high-demand errors as retryable", () => {
     expect(
       isRetryableGeminiError(Object.assign(new Error("This model is currently experiencing high demand."), { status: 503 }))
@@ -79,7 +90,6 @@ describe("Gemini model fallbacks", () => {
     const decision = await generateTradeDecisionWithFallback(context(), {
       generateContent,
       models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
-      attemptsPerModel: 1,
       sleep,
     });
 
@@ -89,6 +99,29 @@ describe("Gemini model fallbacks", () => {
     expect(generateContent).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: "gemini-2.5-flash-lite" }));
   });
 
+  it("falls back after a timeout abort without retrying the same model", async () => {
+    const generateContent: GeminiGenerateContent = vi.fn(async (request) => {
+      if (request.model === "gemini-2.5-flash") {
+        const error = new Error("This operation was aborted");
+        error.name = "AbortError";
+        throw error;
+      }
+
+      return { text: JSON.stringify(validDecision()) };
+    });
+    const sleep = vi.fn(async () => undefined);
+
+    const decision = await generateTradeDecisionWithFallback(context(), {
+      generateContent,
+      models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+      sleep,
+    });
+
+    expect(decision.action).toBe("HOLD");
+    expect(generateContent).toHaveBeenCalledTimes(2);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
   it("does not fall back on a malformed response", async () => {
     const generateContent = vi.fn(async () => ({ text: "not-json" }));
 
@@ -96,7 +129,6 @@ describe("Gemini model fallbacks", () => {
       generateTradeDecisionWithFallback(context(), {
         generateContent,
         models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
-        attemptsPerModel: 2,
         sleep: async () => undefined,
       })
     ).rejects.toMatchObject({ code: "MALFORMED_RESPONSE" });

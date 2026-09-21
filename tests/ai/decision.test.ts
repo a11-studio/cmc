@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { generateTradeDecision, createDecisionContext, validateTradeDecision } from "@/lib/ai/decision";
 import { AiDecisionError } from "@/lib/ai/errors";
-import { DEFAULT_GEMINI_MODEL, getGeminiApiKey, resolveGeminiModel, resolveGeminiModels } from "@/lib/ai/config";
+import {
+  DEFAULT_GEMINI_FALLBACK_MODELS,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+  resolveGeminiModel,
+  resolveGeminiModels,
+} from "@/lib/ai/config";
 import { MOMENTUM_ALPHA_SYSTEM_PROMPT, TRADE_DECISION_JSON_SCHEMA } from "@/lib/ai/prompts";
 import type { DecisionContext, GeminiGenerateContent, TradeDecision } from "@/lib/ai/types";
 import type { MarketSnapshot } from "@/lib/market/types";
@@ -131,7 +137,10 @@ describe("Gemini model configuration", () => {
     expect(resolveGeminiModel({})).toBe(DEFAULT_GEMINI_MODEL);
     expect(resolveGeminiModel({ GEMINI_MODEL: "  " })).toBe(DEFAULT_GEMINI_MODEL);
     expect(resolveGeminiModel({ GEMINI_MODEL: "gemini-custom-flash" })).toBe("gemini-custom-flash");
-    expect(resolveGeminiModels({ GEMINI_FALLBACK_MODELS: "" })).toEqual([DEFAULT_GEMINI_MODEL]);
+    expect(resolveGeminiModels({ GEMINI_FALLBACK_MODELS: "" })).toEqual([
+      DEFAULT_GEMINI_MODEL,
+      ...DEFAULT_GEMINI_FALLBACK_MODELS,
+    ]);
   });
 });
 

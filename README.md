@@ -141,7 +141,7 @@ Only `CMC_API_KEY` and `GEMINI_API_KEY` are required to see agents trade. Withou
 | `CMC_API_KEY` | Yes | CoinMarketCap Pro API, server-side only |
 | `GEMINI_API_KEY` | Yes | Agent decision engine |
 | `GEMINI_MODEL` | No | Defaults to `gemini-3.1-flash-lite` |
-| `GEMINI_FALLBACK_MODELS` | No | Comma-separated fallbacks when the primary model is overloaded |
+| `GEMINI_FALLBACK_MODELS` | No | Comma-separated fallbacks when the primary model fails or times out; leave empty to use built-in Lite fallbacks |
 | `NEXT_PUBLIC_SUPABASE_URL` | No | Persistence and realtime |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Persistence and realtime |
 | `SUPABASE_SERVICE_ROLE_KEY` | No | Server-side writes |

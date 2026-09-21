@@ -25,17 +25,22 @@ export function resolveGeminiModel(env: EnvLike = process.env): string {
   return configured || DEFAULT_GEMINI_MODEL;
 }
 
+function parseFallbackModels(raw: string | undefined): string[] {
+  const trimmed = raw?.trim();
+
+  if (!trimmed) {
+    return [...DEFAULT_GEMINI_FALLBACK_MODELS];
+  }
+
+  return trimmed
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 export function resolveGeminiModels(env: EnvLike = process.env): string[] {
   const primary = resolveGeminiModel(env);
-  const configuredFallbacks = env.GEMINI_FALLBACK_MODELS;
-
-  const fallbacks =
-    configuredFallbacks == null
-      ? [...DEFAULT_GEMINI_FALLBACK_MODELS]
-      : configuredFallbacks
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean);
+  const fallbacks = parseFallbackModels(env.GEMINI_FALLBACK_MODELS);
 
   return [...new Set([primary, ...fallbacks])];
 }

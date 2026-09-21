@@ -46,6 +46,19 @@ export function mapGeminiError(error: unknown): AiDecisionError {
 
   const status = readStatus(error);
   const message = error instanceof Error ? error.message : "Gemini request failed";
+  const errorName = error instanceof Error ? error.name : "";
+
+  if (
+    errorName === "AbortError" ||
+    errorName === "TimeoutError" ||
+    /aborted|timeout|timed out/i.test(message)
+  ) {
+    return new AiDecisionError(
+      message || "Gemini request timed out",
+      "GEMINI_UNAVAILABLE",
+      { cause: error }
+    );
+  }
 
   if (status === 401 || status === 403) {
     return new AiDecisionError(
