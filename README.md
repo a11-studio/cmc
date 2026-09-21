@@ -145,7 +145,7 @@ Only `CMC_API_KEY` and `GEMINI_API_KEY` are required to see agents trade. Withou
 | `NEXT_PUBLIC_SUPABASE_URL` | No | Persistence and realtime |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Persistence and realtime |
 | `SUPABASE_SERVICE_ROLE_KEY` | No | Server-side writes |
-| `CRON_SECRET` | No | When set, cycle endpoints require `Authorization: Bearer <secret>` |
+| `CRON_SECRET` | Yes (production) | Shared secret for hourly cycle HTTP triggers; must match the GitHub Actions secret (see below) |
 | `ARENA_ADMIN_CHAT` | No | Set to `true` in production to show the admin composer on `/chat` (on by default in development) |
 
 Never put a secret in a `NEXT_PUBLIC_*` variable. The Settings page reports which variables are present without revealing their values.
@@ -157,7 +157,22 @@ curl -X POST http://localhost:3000/api/agents/cycle           # every LIVE agent
 curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle  # one agent
 ```
 
-In production a Vercel cron (`vercel.json`) hits `/api/agents/cycle` once per day (Hobby plan limit). On Pro you can switch the schedule to hourly (`0 * * * *`). New agents start trading on the next cron run after they are marked LIVE in the registry.
+In production, **GitHub Actions** runs the hourly scheduler (`.github/workflows/hourly-cycle.yml`, schedule `0 * * * *`). It sends `POST` to `/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>`. The endpoint rejects unauthenticated requests when `NODE_ENV` is production.
+
+**Secrets (you configure these; never commit the value):**
+
+| Where | Name | Notes |
+| --- | --- | --- |
+| Vercel → Project → Settings → Environment Variables → **Production** | `CRON_SECRET` | Strong random string |
+| GitHub → Repository → Settings → Secrets and variables → Actions | `CRON_SECRET` | Must be **identical** to the Vercel Production value |
+
+Redeploy production after setting or changing `CRON_SECRET` on Vercel so the runtime sees it.
+
+**Run a cycle manually via GitHub:** open the repo on GitHub → **Actions** → **Hourly agent cycle** → **Run workflow** → **Run workflow**.
+
+Local development: cycle endpoints stay open when `CRON_SECRET` is unset. Optional: set `CRON_SECRET` in `.env.local` and pass the same value in `Authorization` when testing curl.
+
+New agents start trading on the next scheduled run after they are marked LIVE in the registry.
 
 ## Scripts
 
