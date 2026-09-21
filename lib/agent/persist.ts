@@ -5,7 +5,9 @@ import type { AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
 import { cycleToActivityEvents } from "@/lib/agent/view";
 import { findAgentDefinition } from "@/lib/agents/registry";
 import { createPaperAccount } from "@/lib/paper/portfolio";
-import type { PaperAccount } from "@/lib/paper/types";
+import type { PaperAccount, Trade } from "@/lib/paper/types";
+import type { AssetSnapshot, MarketSnapshot } from "@/lib/market/types";
+import type { SupportedSymbol } from "@/lib/market/types";
 import type { AgentRiskStatus } from "@/lib/risk/types";
 
 export const MOMENTUM_ALPHA_DESCRIPTION = "Follows short-term trend while respecting position caps";
@@ -130,12 +132,61 @@ export function unwrapAccountPayload(payload: unknown): { account: PaperAccount;
   return { account: createPaperAccount(MOMENTUM_ALPHA_AGENT.initialCapital), dayKey: null };
 }
 
+export type StoredMarketCheckAsset = {
+  symbol: string;
+  price: number;
+};
+
+function marketSnapshotFromCheckAssets(
+  cycleId: string,
+  timestamp: string | null | undefined,
+  assets: readonly StoredMarketCheckAsset[]
+): MarketSnapshot | null {
+  if (assets.length === 0) {
+    return null;
+  }
+
+  const mapped: AssetSnapshot[] = assets
+    .filter((asset) => typeof asset.symbol === "string" && typeof asset.price === "number")
+    .map((asset) => ({
+      symbol: asset.symbol,
+      price: asset.price,
+    }));
+
+  if (mapped.length === 0) {
+    return null;
+  }
+
+  return freezeMarketSnapshot({
+    cycleId,
+    timestamp: timestamp ?? new Date(0).toISOString(),
+    assets: mapped,
+    market: {},
+  });
+}
+
 export function reviveCycle(raw: unknown): AgentCycleResult | null {
   if (!isRecord(raw) || typeof raw.cycleId !== "string" || typeof raw.status !== "string") {
     return null;
   }
 
-  const cycle = cloneJson(raw) as AgentCycleResult;
+  const cycle = cloneJson(raw) as AgentCycleResult & {
+    marketCheckAssets?: StoredMarketCheckAsset[];
+  };
+
+  if (!cycle.snapshot && Array.isArray(cycle.marketCheckAssets)) {
+    const rebuilt = marketSnapshotFromCheckAssets(
+      cycle.cycleId,
+      cycle.snapshotTimestamp,
+      cycle.marketCheckAssets
+    );
+
+    if (rebuilt) {
+      cycle.snapshot = rebuilt;
+    }
+
+    delete cycle.marketCheckAssets;
+  }
 
   if (cycle.snapshot?.assets) {
     cycle.snapshot = freezeMarketSnapshot({
@@ -169,13 +220,12 @@ export function reviveCycle(raw: unknown): AgentCycleResult | null {
  */
 export function slimCycleForStorage(cycle: AgentCycleResult): Record<string, unknown> {
   const copy = cloneJson(cycle);
-  const slim = omit(copy, ["trace"]) as Record<string, unknown>;
+  const slim = omit(copy, ["trace", "snapshot"]) as Record<string, unknown>;
 
-  if (copy.snapshot) {
-    slim.snapshot = {
-      ...omit(copy.snapshot, ["news"]),
-      market: omit(copy.snapshot.market, ["openInterestVenues", "derivativesVolumeVenues"]),
-    };
+  if (copy.snapshot?.assets) {
+    slim.marketCheckAssets = copy.snapshot.assets
+      .filter((asset) => typeof asset.price === "number" && asset.price > 0)
+      .map((asset) => ({ symbol: asset.symbol, price: asset.price }));
   }
 
   if (copy.execution) {
@@ -183,6 +233,42 @@ export function slimCycleForStorage(cycle: AgentCycleResult): Record<string, unk
   }
 
   return slim;
+}
+
+/** Slim account for agents.account_payload — trades/positions live in their own tables. */
+export function slimAccountForStorage(account: PaperAccount): PaperAccount {
+  return {
+    initialCapital: account.initialCapital,
+    cash: account.cash,
+    peakEquity: account.peakEquity,
+    realizedPnl: account.realizedPnl,
+    positions: account.positions.map((position) => ({ ...position })),
+    trades: [],
+  };
+}
+
+export function mapTradeRow(row: {
+  id: string;
+  symbol: string;
+  side: string;
+  quantity: number;
+  price: number;
+  notional: number;
+  realized_pnl: number | null;
+  decision_id: string | null;
+  created_at: string;
+}): Trade {
+  return {
+    id: row.id,
+    symbol: row.symbol as SupportedSymbol,
+    side: row.side as Trade["side"],
+    quantity: row.quantity,
+    price: row.price,
+    notional: row.notional,
+    realizedPnl: row.realized_pnl ?? undefined,
+    cycleId: row.decision_id ?? row.id,
+    createdAt: row.created_at,
+  };
 }
 
 export function snapshotPersistedState(
@@ -273,7 +359,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
       initial_capital: state.account.initialCapital,
       status: state.status,
       risk_profile: identity.riskProfile,
-      account_payload: wrapAccountPayload(state.account, state.dayKey),
+      account_payload: wrapAccountPayload(slimAccountForStorage(state.account), state.dayKey),
       day_start_equity: state.dayStartEquity,
       last_equity: state.lastEquity,
       day_key: state.dayKey,

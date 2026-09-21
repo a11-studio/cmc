@@ -1,6 +1,10 @@
 import "server-only";
 
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
+import { invalidateArenaCycleControlCache } from "@/lib/agent/cycle-control";
+import { invalidateAgentEquityHistoryCache } from "@/lib/agent/equity-history";
+import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
+import { loadPaperAccountForDashboard, loadPaperAccountForExecution } from "@/lib/agent/hydrate-account";
 import {
   createStoreFromPersistedState,
   persistArenaState,
@@ -15,14 +19,26 @@ import { createInMemoryAgentStore } from "@/lib/agent/store";
 import type { AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
 import { findAgentDefinition, toAgentIdentity } from "@/lib/agents/registry";
 import { isSupabasePersistenceConfigured } from "@/lib/env.server";
+import {
+  DEFAULT_TTL_CACHE_MS,
+  getTtlCached,
+  invalidateTtlCache,
+  setTtlCached,
+  ttlCacheKey,
+} from "@/lib/server/ttl-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Max cycle rows loaded per agent on hydrate (keeps PostgREST egress bounded). */
-export const HYDRATE_CYCLE_LIMIT = 72;
+/**
+ * Recent cycles for dashboard charts, decisions, and trade checks.
+ * ~48 hourly cycles ≈ 2 days; matches typical Arena UI windows.
+ */
+export const HYDRATE_CYCLE_LIMIT = 48;
 
 /** How long a CLAIMED row may sit before another run may take the slot over. */
 export const STALE_CLAIM_MS = 10 * 60 * 1000;
+
+export type HydratePurpose = "dashboard" | "execution";
 
 function throwIfError(error: { message: string } | null, action: string): void {
   if (error) {
@@ -39,6 +55,20 @@ function emptyStore(agentId: string): AgentCycleStore {
   return createInMemoryAgentStore({ initialCapital: identityFor(agentId).initialCapital });
 }
 
+function hydrateCacheKey(agentId: string, purpose: HydratePurpose): string {
+  return ttlCacheKey(["arena", "hydrate", purpose, agentId]);
+}
+
+export function invalidateAgentHydrateCache(agentId?: string): void {
+  if (agentId) {
+    invalidateTtlCache(hydrateCacheKey(agentId, "dashboard"));
+    invalidateTtlCache(hydrateCacheKey(agentId, "execution"));
+    invalidateAgentEquityHistoryCache(agentId);
+  }
+
+  invalidateArenaCycleControlCache();
+}
+
 export function createSupabaseArenaWriter(client: SupabaseClient): ArenaWriter {
   return {
     async upsert(table, rows, onConflict) {
@@ -50,6 +80,33 @@ export function createSupabaseArenaWriter(client: SupabaseClient): ArenaWriter {
       throwIfError(error, `delete ${table}`);
     },
   };
+}
+
+async function attachMarketSnapshotIfMissing(
+  client: SupabaseClient,
+  cycle: AgentCycleResult
+): Promise<AgentCycleResult> {
+  if (cycle.snapshot?.assets?.length) {
+    return cycle;
+  }
+
+  const { data, error } = await client
+    .from("market_snapshots")
+    .select("payload")
+    .eq("cycle_id", cycle.cycleId)
+    .maybeSingle();
+
+  throwIfError(error, "fetch market snapshot");
+
+  const payload = (data as { payload: unknown } | null)?.payload;
+
+  if (!payload || typeof payload !== "object") {
+    return cycle;
+  }
+
+  const revived = reviveCycle({ ...cycle, snapshot: payload });
+
+  return revived ?? cycle;
 }
 
 export async function fetchPersistedCycle(
@@ -75,10 +132,19 @@ export async function fetchPersistedCycle(
 
   throwIfError(error, "fetch cycle");
 
-  return reviveCycle((data as { payload: unknown } | null)?.payload);
+  const cycle = reviveCycle((data as { payload: unknown } | null)?.payload);
+
+  if (!cycle) {
+    return null;
+  }
+
+  return attachMarketSnapshotIfMissing(client, cycle);
 }
 
-export async function hydrateAgentStore(agentId: string): Promise<AgentCycleStore> {
+async function hydrateAgentStoreUncached(
+  agentId: string,
+  purpose: HydratePurpose
+): Promise<AgentCycleStore> {
   if (!isSupabasePersistenceConfigured()) {
     return emptyStore(agentId);
   }
@@ -107,20 +173,65 @@ export async function hydrateAgentStore(agentId: string): Promise<AgentCycleStor
   throwIfError(agentResult.error, "hydrate agent");
   throwIfError(cyclesResult.error, "hydrate cycles");
 
+  const agentRow = agentResult.data as PersistedAgentRow | null;
+
+  if (!agentRow) {
+    return emptyStore(agentId);
+  }
+
+  const account =
+    purpose === "execution"
+      ? await loadPaperAccountForExecution(client, agentId, agentRow)
+      : await loadPaperAccountForDashboard(client, agentId, agentRow);
+
   const cycleRows = [...((cyclesResult.data as PersistedCycleRow[] | null) ?? [])].reverse();
 
-  const state = persistedStateFromRows(
-    (agentResult.data as PersistedAgentRow | null) ?? null,
-    cycleRows,
-    new Date(),
-    agentId
-  );
+  const approxBytes =
+    approximateJsonBytes(agentRow.account_payload) +
+    cycleRows.reduce((sum, row) => sum + approximateJsonBytes(row.payload), 0);
+
+  logArenaEgress("hydrate", {
+    agentId,
+    purpose,
+    cycles: cycleRows.length,
+    approxBytes,
+    cache: "miss",
+  });
+
+  const state = persistedStateFromRows(agentRow, cycleRows, new Date(), agentId);
 
   if (!state) {
     return emptyStore(agentId);
   }
 
+  state.account = account;
+
   return createStoreFromPersistedState(state);
+}
+
+export async function hydrateAgentStore(
+  agentId: string,
+  purpose: HydratePurpose = "dashboard"
+): Promise<AgentCycleStore> {
+  if (!isSupabasePersistenceConfigured()) {
+    return emptyStore(agentId);
+  }
+
+  if (purpose === "execution") {
+    return hydrateAgentStoreUncached(agentId, purpose);
+  }
+
+  const key = hydrateCacheKey(agentId, purpose);
+  const cached = getTtlCached<AgentCycleStore>(key);
+
+  if (cached) {
+    logArenaEgress("hydrate", { agentId, purpose, cache: "hit" });
+    return cached;
+  }
+
+  const store = await hydrateAgentStoreUncached(agentId, purpose);
+  setTtlCached(key, store, DEFAULT_TTL_CACHE_MS);
+  return store;
 }
 
 export async function persistAgentStore(agentId: string, store: AgentCycleStore): Promise<void> {
@@ -135,6 +246,7 @@ export async function persistAgentStore(agentId: string, store: AgentCycleStore)
   }
 
   await persistArenaState(createSupabaseArenaWriter(client), snapshotPersistedState(store, new Date(), agentId));
+  invalidateAgentHydrateCache(agentId);
 }
 
 export async function claimAgentCycle(agentId: string, cycleId: string, now = new Date()): Promise<boolean> {
@@ -168,8 +280,6 @@ export async function claimAgentCycle(agentId: string, cycleId: string, now = ne
     return true;
   }
 
-  // A run that died before writing its result leaves the row CLAIMED forever,
-  // which burned the slot for good. Take it over once it is clearly abandoned.
   const abandonedBefore = new Date(now.getTime() - STALE_CLAIM_MS).toISOString();
 
   const { data: reclaimed, error: reclaimError } = await client

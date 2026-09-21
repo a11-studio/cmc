@@ -7,6 +7,7 @@ export const CMC_GLOBAL_METRICS_PATH = "/v1/global-metrics/quotes/latest";
 export const CMC_FEAR_GREED_PATH = "/v3/fear-and-greed/latest";
 export const CMC_DERIVATIVES_EXCHANGES_PATH = "/v5/exchange/derivatives/list";
 export const CMC_LIQUIDATIONS_PATH = "/v5/derivatives/liquidations/quotes/latest";
+export const CMC_LIQUIDATIONS_BY_CRYPTO_PATH = "/v5/derivatives/liquidations/cryptocurrency/list/latest";
 export const CMC_REVALIDATE_SECONDS = 60;
 /** Without this a stalled connection holds the agent cycle open indefinitely. */
 export const CMC_TIMEOUT_MS = 15_000;

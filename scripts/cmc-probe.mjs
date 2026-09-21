@@ -80,6 +80,18 @@ const ENDPOINTS = [
       return { total_liquidations_24h, long_liquidations_24h, short_liquidations_24h };
     },
   },
+  {
+    path: "/v5/derivatives/liquidations/cryptocurrency/list/latest",
+    params: { crypto_id: "1", crypto_symbol: "BTC", convert: "USD", limit: "1" },
+    pick: (body) => {
+      const quote = body.data?.cryptocurrencies?.[0]?.quotes?.[0] ?? {};
+      return {
+        total_liquidations_4h: quote.total_liquidations_4h,
+        long_liquidations_4h: quote.long_liquidations_4h,
+        short_liquidations_4h: quote.short_liquidations_4h,
+      };
+    },
+  },
 ];
 
 const apiKey = process.env.CMC_API_KEY?.trim();

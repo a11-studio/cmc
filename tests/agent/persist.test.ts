@@ -238,21 +238,21 @@ describe("Momentum Alpha persistence mapping", () => {
 
     const rows = toArenaWriteRows(snapshotPersistedState(store, NOW), NOW);
     const payload = rows.cycles[0]!.payload as Record<string, unknown>;
-    const stored = payload.snapshot as { market: Record<string, unknown>; assets: unknown[] };
+    const checkAssets = payload.marketCheckAssets as { symbol: string; price: number }[];
 
     expect(payload.trace).toBeUndefined();
-    expect(stored.market.openInterestVenues).toBeUndefined();
-    expect(stored.market.derivativesVolumeVenues).toBeUndefined();
+    expect(payload.snapshot).toBeUndefined();
     expect((payload.execution as Record<string, unknown>).account).toBeUndefined();
+    expect(checkAssets).toHaveLength(5);
 
-    // Everything the dashboard renders survives the round trip.
-    expect(stored.market.openInterest).toBe(200);
-    expect(stored.assets).toHaveLength(5);
     const revived = reviveCycle(payload)!;
     expect(revived.decision?.symbol).toBe("BTC");
     expect(revived.execution?.ok ? revived.execution.trade?.symbol : null).toBe("BTC");
     expect(revived.snapshot?.assets[0]?.price).toBe(50_000);
     expect(revived.trace.decision?.symbol).toBe("BTC");
+
+    const agentPayload = rows.agent.account_payload as { account: { trades: unknown[] } };
+    expect(agentPayload.account.trades).toEqual([]);
   });
 
   it("persists only the latest cycle row to Supabase", async () => {

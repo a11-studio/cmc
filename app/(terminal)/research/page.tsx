@@ -11,7 +11,10 @@ import type { AssetSnapshot, MarketSnapshot } from "@/lib/market/types";
 import type { SupportedSymbol } from "@/lib/market/types";
 import { lookupPriorMarketMetric, lookupPriorQuote, rememberSnapshot, type PriorMarketMetric, type PriorQuote } from "@/lib/market/quote-history";
 import { getMomentumAlphaStore } from "@/lib/agent/runtime";
+import { BtcLiquidationSignalCard } from "@/components/research/btc-liquidation-signal-card";
 import { ResearchMarketCards } from "@/components/research/research-metrics";
+import { hasServerEnv } from "@/lib/env.server";
+import { fetchBtcLiquidationSummary, type BtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary";
 
 export const metadata = {
   title: "Research",
@@ -72,10 +75,20 @@ export default async function ResearchPage({
   }
 
   const observedAt = new Date().toISOString();
+  const btc = snapshot.assets.find((asset) => asset.symbol === "BTC");
+  let liquidationSummary: BtcLiquidationSummary | null = null;
+
+  if (btc && hasServerEnv("CMC_API_KEY")) {
+    liquidationSummary = await fetchBtcLiquidationSummary({
+      apiKey: process.env.CMC_API_KEY ?? "",
+    });
+  }
 
   return (
     <ResearchView
       snapshot={snapshot}
+      liquidationSummary={liquidationSummary}
+      spotPrice={btc?.price}
       selected={selected}
       priors={Object.fromEntries(
         snapshot.assets.map((asset) => [
@@ -97,11 +110,15 @@ export default async function ResearchPage({
 
 function ResearchView({
   snapshot,
+  liquidationSummary,
+  spotPrice,
   selected,
   priors,
   marketPriors,
 }: {
   snapshot: MarketSnapshot;
+  liquidationSummary: BtcLiquidationSummary | null;
+  spotPrice?: number;
   selected?: string;
   priors: Record<string, PriorQuote | undefined>;
   marketPriors: {
@@ -123,6 +140,8 @@ function ResearchView({
       />
 
       <ResearchMarketCards market={snapshot.market} priors={marketPriors} />
+
+      <BtcLiquidationSignalCard summary={liquidationSummary} spotPrice={spotPrice} />
 
       {hasMarket ? (
         <Card className="px-6 py-5">

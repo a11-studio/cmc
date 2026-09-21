@@ -37,12 +37,20 @@ function memoryStoreFor(agentId: string): AgentCycleStore {
   return store;
 }
 
-async function resolveStore(agentId: string): Promise<AgentCycleStore> {
+async function resolveDashboardStore(agentId: string): Promise<AgentCycleStore> {
   if (!isSupabasePersistenceConfigured()) {
     return memoryStoreFor(agentId);
   }
 
-  return hydrateAgentStore(agentId);
+  return hydrateAgentStore(agentId, "dashboard");
+}
+
+async function resolveExecutionStore(agentId: string): Promise<AgentCycleStore> {
+  if (!isSupabasePersistenceConfigured()) {
+    return memoryStoreFor(agentId);
+  }
+
+  return hydrateAgentStore(agentId, "execution");
 }
 
 function cycleDependencies(store: AgentCycleStore): AgentCycleDependencies {
@@ -72,7 +80,7 @@ function evaluationStoreFor(agentId: string, initialCapital: number): AgentCycle
 }
 
 export const getAgentStore = cache(async (agentId: string): Promise<AgentCycleStore> => {
-  return resolveStore(agentId);
+  return resolveDashboardStore(agentId);
 });
 
 export async function getMomentumAlphaStore(): Promise<AgentCycleStore> {
@@ -104,7 +112,7 @@ export async function runLiveAgentCycle(
   const agent = toAgentIdentity(definition);
   const now = new Date();
   const cycleId = options?.cycleId ?? cycleIdForSlot(now, definition.id);
-  const store = await getAgentStore(definition.id);
+  const store = await resolveExecutionStore(definition.id);
 
   if (!(await claimAgentCycle(definition.id, cycleId, now))) {
     return skippedDuplicateFromStore(store, cycleId, now, definition.id);

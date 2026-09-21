@@ -12,7 +12,8 @@ import {
   setAgentTradingStatus,
   setMomentumAlphaTradingStatus,
 } from "@/lib/agent/runtime";
-import { latestCycleCompletedAt } from "@/lib/agent/scheduler";
+import { getArenaCycleControlState } from "@/lib/agent/cycle-control";
+import { fetchAgentPortfolioEquityHistory } from "@/lib/agent/equity-history";
 import {
   buildAgentView,
   buildMomentumAlphaView,
@@ -51,14 +52,7 @@ export async function getLastCycleCompletedAt(): Promise<string | null> {
 
 export const getArenaCycleControl = cache(async () => {
   try {
-    const stores = await Promise.all(listLiveAgents().map((agent) => getAgentStore(agent.id)));
-    const statuses = stores.map((store) => store.getAgentStatus());
-
-    return {
-      lastCompletedAt: latestCycleCompletedAt(stores.flatMap((store) => store.listCycles())),
-      autoRun: statuses.some((status) => status === "ACTIVE"),
-      paused: statuses.length > 0 && statuses.every((status) => status === "PAUSED"),
-    };
+    return await getArenaCycleControlState();
   } catch {
     return {
       lastCompletedAt: null,
@@ -69,7 +63,12 @@ export const getArenaCycleControl = cache(async () => {
 });
 
 export const getLiveAgentView = cache(async (agentId: string): Promise<MomentumAlphaView> => {
-  return buildAgentView(await getAgentStore(agentId), agentId);
+  const [store, portfolioEquityHistory] = await Promise.all([
+    getAgentStore(agentId),
+    fetchAgentPortfolioEquityHistory(agentId),
+  ]);
+
+  return buildAgentView(store, agentId, { portfolioEquityHistory });
 });
 
 export const getLiveAgentViews = cache(async (): Promise<MomentumAlphaView[]> => {

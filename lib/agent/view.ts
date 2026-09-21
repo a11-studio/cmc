@@ -432,9 +432,37 @@ function agentStatus(storeStatus: LeaderboardAgent["status"], cycles: readonly A
   return storeStatus;
 }
 
+export function buildEquitySeries(
+  account: PaperAccount,
+  serialized: readonly SerializedCycle[],
+  portfolioHistory?: readonly EquityCurvePoint[]
+): EquityCurvePoint[] {
+  const fromCycles = serialized.flatMap((cycle) =>
+    cycle.equity == null
+      ? []
+      : [
+          {
+            equity: cycle.equity,
+            at: cycle.completedAt,
+            label: cycle.decision
+              ? `${cycle.decision.action} ${cycle.decision.symbol}`
+              : cycle.status.replace(/_/g, " "),
+          },
+        ]
+  );
+
+  const history =
+    portfolioHistory && portfolioHistory.length > 0
+      ? portfolioHistory
+      : fromCycles;
+
+  return [{ equity: account.initialCapital, label: "Start" }, ...history];
+}
+
 export function buildAgentView(
   store: Pick<AgentCycleStore, "getAccount" | "getAgentStatus" | "listCycles" | "getDayStartEquity">,
-  agentId: string = MOMENTUM_ALPHA_AGENT.id
+  agentId: string = MOMENTUM_ALPHA_AGENT.id,
+  options?: { portfolioEquityHistory?: readonly EquityCurvePoint[] }
 ): MomentumAlphaView {
   const definition = findAgentDefinition(agentId);
   const account = store.getAccount();
@@ -481,22 +509,7 @@ export function buildAgentView(
     runtimeStatus: "LIVE",
   };
 
-  const equitySeries: EquityCurvePoint[] = [
-    { equity: account.initialCapital, label: "Start" },
-    ...serialized.flatMap((cycle) =>
-      cycle.equity == null
-        ? []
-        : [
-            {
-              equity: cycle.equity,
-              at: cycle.completedAt,
-              label: cycle.decision
-                ? `${cycle.decision.action} ${cycle.decision.symbol}`
-                : cycle.status.replace(/_/g, " "),
-            },
-          ]
-    ),
-  ];
+  const equitySeries = buildEquitySeries(account, serialized, options?.portfolioEquityHistory);
   const equityCurve = equitySeries.map((point) => point.equity);
 
   return {
