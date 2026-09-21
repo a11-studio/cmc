@@ -38,30 +38,23 @@ export function latestCycleCompletedAt(
   return latest > 0 ? new Date(latest).toISOString() : null;
 }
 
+/** Next UTC-aligned hourly slot (matches GitHub Actions `0 * * * *` and `cycleIdForSlot`). */
 export function nextCycleAt(
   now: Date,
-  lastCompletedAt?: Date | string | null,
+  _lastCompletedAt?: Date | string | null,
   intervalMs = AGENT_CYCLE_INTERVAL_MS
 ): Date {
   const time = now.getTime();
   const slotStart = Math.floor(time / intervalMs) * intervalMs;
-  const slotNext = new Date(slotStart + intervalMs);
-  const completed = parseTimestamp(lastCompletedAt);
-
-  if (completed == null) {
-    return slotNext;
-  }
-
-  const cooldownNext = completed + intervalMs;
-  return cooldownNext > time ? new Date(cooldownNext) : slotNext;
+  return new Date(slotStart + intervalMs);
 }
 
 export function msUntilNextCycle(
   now: Date,
-  lastCompletedAt?: Date | string | null,
+  _lastCompletedAt?: Date | string | null,
   intervalMs = AGENT_CYCLE_INTERVAL_MS
 ): number {
-  return Math.max(0, nextCycleAt(now, lastCompletedAt, intervalMs).getTime() - now.getTime());
+  return Math.max(0, nextCycleAt(now, undefined, intervalMs).getTime() - now.getTime());
 }
 
 export function shouldTriggerAutoCycle(input: {

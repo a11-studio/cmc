@@ -157,7 +157,7 @@ curl -X POST http://localhost:3000/api/agents/cycle           # every LIVE agent
 curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle  # one agent
 ```
 
-In production, **GitHub Actions** runs the hourly scheduler (`.github/workflows/hourly-cycle.yml`, schedule `0 * * * *`). It sends `POST` to `/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>`. The endpoint rejects unauthenticated requests when `NODE_ENV` is production.
+In production, **GitHub Actions** runs the hourly scheduler (`.github/workflows/hourly-cycle.yml`, schedule `0 * * * *`). It sends `POST` to `/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>`. The endpoint rejects unauthenticated requests when `NODE_ENV` is production. The arena header countdown uses the same UTC hour boundaries (next slot at `:00` UTC), not “one hour after the last agent finished.”
 
 **Secrets (you configure these; never commit the value):**
 

@@ -37,13 +37,13 @@ describe("Momentum Alpha scheduler", () => {
     expect(formatCycleCountdown(msUntilNextCycle(new Date("2026-09-17T11:00:00.000Z")))).toBe("60:00");
   });
 
-  it("resets the countdown after a cycle completes", () => {
+  it("keeps the countdown on the hourly slot even after a cycle completes", () => {
     const completedAt = "2026-09-17T11:06:18.000Z";
     const now = new Date("2026-09-17T11:06:18.000Z");
     const later = new Date("2026-09-17T11:07:18.000Z");
 
-    expect(formatCycleCountdown(msUntilNextCycle(now, completedAt))).toBe("60:00");
-    expect(formatCycleCountdown(msUntilNextCycle(later, completedAt))).toBe("59:00");
+    expect(formatCycleCountdown(msUntilNextCycle(now, completedAt))).toBe("53:42");
+    expect(formatCycleCountdown(msUntilNextCycle(later, completedAt))).toBe("52:42");
     expect(latestCycleCompletedAt([
       { status: "SKIPPED_DUPLICATE", completedAt: "2026-09-17T11:07:00.000Z" },
       { status: "COMPLETED", completedAt },
