@@ -7,7 +7,13 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { ArenaBrand } from "@/components/layout/arena-brand";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 
-export function MobileNav({ showDebugControls = false }: { showDebugControls?: boolean }) {
+export function MobileNav({
+  showDebugControls = false,
+  showHumanTrader = false,
+}: {
+  showDebugControls?: boolean;
+  showHumanTrader?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -22,7 +28,11 @@ export function MobileNav({ showDebugControls = false }: { showDebugControls?: b
         <div className="flex h-[72px] items-center px-4">
           <ArenaBrand />
         </div>
-        <SidebarNav onNavigate={() => setOpen(false)} showDebugControls={showDebugControls} />
+        <SidebarNav
+          onNavigate={() => setOpen(false)}
+          showDebugControls={showDebugControls}
+          showHumanTrader={showHumanTrader}
+        />
       </SheetContent>
     </Sheet>
   );

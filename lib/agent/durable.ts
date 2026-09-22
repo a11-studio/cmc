@@ -1,5 +1,6 @@
 import "server-only";
 
+import { STALE_CYCLE_CLAIM_MS } from "@/lib/agent/cycle-claim";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import { invalidateArenaCycleControlCache } from "@/lib/agent/cycle-control";
 import { invalidateAgentEquityHistoryCache } from "@/lib/agent/equity-history";
@@ -38,7 +39,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const HYDRATE_CYCLE_LIMIT = 48;
 
 /** How long a CLAIMED row may sit before another run may take the slot over. */
-export const STALE_CLAIM_MS = 10 * 60 * 1000;
+export const STALE_CLAIM_MS = STALE_CYCLE_CLAIM_MS;
 
 export type HydratePurpose = "dashboard" | "execution";
 

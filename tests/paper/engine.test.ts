@@ -481,6 +481,33 @@ describe("paper trading engine", () => {
     expect(marked.portfolio.equity).toBeCloseTo(10_400, 8);
   });
 
+  it("SELL covers a short using position percent (same semantics as closing a long)", () => {
+    const opened = executePaperDecision(
+      createPaperAccount(),
+      decision({ action: "SHORT", symbol: "ETH", allocationPercent: 10 }),
+      snapshot({ ETH: 100 }, "short")
+    );
+
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      return;
+    }
+
+    const covered = executePaperDecision(
+      opened.account,
+      decision({ action: "SELL", symbol: "ETH", allocationPercent: 100 }),
+      snapshot({ ETH: 90 }, "cover-sell")
+    );
+
+    expect(covered.ok).toBe(true);
+    if (!covered.ok) {
+      return;
+    }
+
+    expect(covered.trade?.side).toBe("BUY");
+    expect(covered.account.positions).toEqual([]);
+  });
+
   it("BUY covers a short and realizes P&L", () => {
     const opened = executePaperDecision(
       createPaperAccount(),

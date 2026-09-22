@@ -271,7 +271,54 @@ export function executePaperDecision(
 
     const existing = findPosition(account.positions, symbol);
 
-    if (!existing || existing.quantity <= QUANTITY_EPSILON) {
+    if (!existing || isClosedQuantity(existing.quantity)) {
+      return reject(
+        account,
+        snapshot,
+        action,
+        "INSUFFICIENT_POSITION",
+        `Insufficient ${symbol} position to SELL`
+      );
+    }
+
+    if (existing.quantity < -QUANTITY_EPSILON) {
+      const closeAbs = Math.abs(existing.quantity) * (decision.allocationPercent / 100);
+
+      if (!(closeAbs > 0)) {
+        return reject(
+          account,
+          snapshot,
+          action,
+          "INSUFFICIENT_POSITION",
+          `Insufficient ${symbol} short to cover`
+        );
+      }
+
+      const notional = closeAbs * price;
+
+      if (notional > account.cash + QUANTITY_EPSILON) {
+        return reject(
+          account,
+          snapshot,
+          action,
+          "INSUFFICIENT_CASH",
+          `Insufficient cash to cover ${symbol} short: need ${notional}, have ${account.cash}`
+        );
+      }
+
+      return commitFill({
+        account,
+        snapshot,
+        action: "BUY",
+        symbol,
+        signedQuantity: closeAbs,
+        price,
+        createdAt,
+        createTradeId,
+      });
+    }
+
+    if (existing.quantity <= QUANTITY_EPSILON) {
       return reject(
         account,
         snapshot,

@@ -105,6 +105,18 @@ describe("computeTradingHeadroom", () => {
     }).notes.join(" ")).toContain("maximum of 3 positions");
   });
 
+  it("offers SELL room on an open short (cover)", () => {
+    const headroom = headroomFor({
+      cash: 11_000,
+      equity: 10_000,
+      positions: [{ symbol: "ETH", quantity: -1, marketValue: -2_500, allocationPercent: -25 }],
+    });
+    const eth = headroom.perSymbol.find((entry) => entry.symbol === "ETH")!;
+
+    expect(headroom.executableActions).toContain("SELL");
+    expect(eth.maxSellPercentOfPosition).toBeGreaterThan(0);
+  });
+
   it("only offers SELL room on symbols actually held", () => {
     const headroom = headroomFor(fullyDeployed);
     const btc = headroom.perSymbol.find((entry) => entry.symbol === "BTC")!;

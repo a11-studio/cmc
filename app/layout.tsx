@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${inter.variable} ${inter.className} dark h-full antialiased`}>
       <body className="min-h-dvh bg-background font-sans text-foreground">
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

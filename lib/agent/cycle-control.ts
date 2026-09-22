@@ -1,5 +1,6 @@
 import "server-only";
 
+import { STALE_CYCLE_CLAIM_MS, isFreshCycleClaim } from "@/lib/agent/cycle-claim";
 import { latestCycleCompletedAt } from "@/lib/agent/scheduler";
 import type { AgentCycleResult } from "@/lib/agent/types";
 import { listLiveAgents } from "@/lib/agents/registry";
@@ -20,7 +21,7 @@ export type ArenaCycleControl = {
   lastCompletedAt: string | null;
   autoRun: boolean;
   paused: boolean;
-  /** True when any live agent has a CLAIMED row (hourly GitHub/cron run in flight). */
+  /** True when any live agent has a fresh CLAIMED row (stale claims are ignored). */
   cycleInProgress: boolean;
 };
 
@@ -58,6 +59,8 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
     return controlFromMemory();
   }
 
+  const freshClaimSince = new Date(Date.now() - STALE_CYCLE_CLAIM_MS).toISOString();
+
   const [statusResult, cyclesResult, claimedResult] = await Promise.all([
     client.from("agents").select("id, status").in("id", agentIds),
     client
@@ -70,9 +73,10 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
       .limit(agentIds.length * 4),
     client
       .from("agent_cycles")
-      .select("agent_id", { count: "exact", head: true })
+      .select("agent_id, started_at")
       .in("agent_id", agentIds)
-      .eq("status", "CLAIMED"),
+      .eq("status", "CLAIMED")
+      .gte("started_at", freshClaimSince),
   ]);
 
   if (statusResult.error) {
@@ -86,6 +90,10 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
   if (claimedResult.error) {
     throw new Error(`cycle control claimed: ${claimedResult.error.message}`);
   }
+
+  type ClaimedRow = { agent_id: string; started_at: string | null };
+  const claimedRows = (claimedResult.data as ClaimedRow[] | null) ?? [];
+  const cycleInProgress = claimedRows.some((row) => isFreshCycleClaim(row.started_at));
 
   const statuses = (statusResult.data as AgentStatusRow[] | null) ?? [];
   const cycleRows = (cyclesResult.data as CycleCompletedRow[] | null) ?? [];
@@ -118,7 +126,7 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
     lastCompletedAt: latestCycleCompletedAt(pseudoCycles),
     autoRun: agentStatuses.some((status) => status === "ACTIVE"),
     paused: agentStatuses.length > 0 && agentStatuses.every((status) => status === "PAUSED"),
-    cycleInProgress: (claimedResult.count ?? 0) > 0,
+    cycleInProgress,
   };
 }
 

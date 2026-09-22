@@ -17,7 +17,13 @@ type ShellPayload = {
   cycleInProgress?: boolean;
 };
 
-export function ShellChrome({ showDebugControls = false }: { showDebugControls?: boolean }) {
+export function ShellChrome({
+  showDebugControls = false,
+  showHumanTrader = false,
+}: {
+  showDebugControls?: boolean;
+  showHumanTrader?: boolean;
+}) {
   const [payload, setPayload] = useState<ShellPayload | null>(null);
 
   const load = useCallback(async () => {
@@ -63,6 +69,7 @@ export function ShellChrome({ showDebugControls = false }: { showDebugControls?:
       tradingPaused={payload?.tradingPaused}
       cycleInProgress={payload?.cycleInProgress}
       showDebugControls={showDebugControls}
+      showHumanTrader={showHumanTrader}
     />
   );
 }

@@ -27,7 +27,7 @@ export type SymbolHeadroom = {
   symbol: SupportedSymbol;
   /** Percent of equity this BUY could still spend, after every cap. */
   maxBuyPercentOfEquity: number;
-  /** Percent of the existing long that a SELL could release. */
+  /** Percent of the open position a SELL can close (long) or cover (short). */
   maxSellPercentOfPosition: number;
   maxShortPercentOfEquity: number;
 };
@@ -98,15 +98,27 @@ export function computeTradingHeadroom(input: {
             })
           );
 
+    const closingValue =
+      isOpen && existing.quantity < 0 ? Math.abs(existing.marketValue) : existing?.marketValue ?? 0;
+
     const maxSell =
-      isOpen && existing.quantity > 0
-        ? tightestCap(
-            closingAllocationCaps({
-              marketValue: existing.marketValue,
+      isOpen && !isClosedQuantity(existing.quantity) && existing.quantity !== 0
+        ? tightestCap([
+            ...closingAllocationCaps({
+              marketValue: closingValue,
               equity,
               constraints,
-            })
-          )
+            }),
+            ...(existing.quantity < 0
+              ? [
+                  {
+                    code: "LEVERAGE_FORBIDDEN" as const,
+                    max: closingValue > 0 ? (cash / closingValue) * 100 : 0,
+                    detail: "Covering more than cash allows would require leverage",
+                  },
+                ]
+              : []),
+          ])
         : 0;
 
     return {
@@ -136,12 +148,20 @@ export function computeTradingHeadroom(input: {
 
   const notes: string[] = [];
 
+  const hasShort = positions.some((position) => position.quantity < 0);
+
   if (!canBuy && canSell) {
     notes.push(
       "BUY cannot execute: there is no spendable cash. SELL part of a position first to raise cash, then buy on a later cycle."
     );
   } else if (!canBuy) {
     notes.push("BUY cannot execute: there is no spendable cash.");
+  }
+
+  if (hasShort) {
+    notes.push(
+      "Open shorts can be reduced with SELL (percent of the short position) or BUY (percent of equity to spend). SELL does not apply to symbols you are not short."
+    );
   }
 
   if (atPositionLimit) {

@@ -238,13 +238,21 @@ export function evaluateRisk(input: RiskInput): RiskResult {
   checks.push(passed("DRAWDOWN_LIMIT", `Drawdown ${portfolio.drawdownPercent.toFixed(2)}% is inside the limit`));
 
   if (action === "SELL") {
-    if (!existing || existing.quantity <= PERCENT_EPSILON) {
+    if (!existing || isClosedQuantity(existing.quantity)) {
       checks.push(failed("INSUFFICIENT_POSITION", `No ${symbol} position to sell`));
       return blocked(decision, "INSUFFICIENT_POSITION", "Rejected: no position to sell", checks);
     }
 
-    checks.push(passed("INSUFFICIENT_POSITION", `${symbol} position is available to sell`));
-    checks.push(passed("SHORTING_FORBIDDEN", "Sell stays within the long position"));
+    if (existing.quantity < -PERCENT_EPSILON) {
+      checks.push(passed("INSUFFICIENT_POSITION", `${symbol} short is available to cover`));
+      checks.push(passed("SHORTING_FORBIDDEN", "Sell reduces the open short (cover)"));
+    } else if (existing.quantity > PERCENT_EPSILON) {
+      checks.push(passed("INSUFFICIENT_POSITION", `${symbol} position is available to sell`));
+      checks.push(passed("SHORTING_FORBIDDEN", "Sell stays within the long position"));
+    } else {
+      checks.push(failed("INSUFFICIENT_POSITION", `No ${symbol} position to sell`));
+      return blocked(decision, "INSUFFICIENT_POSITION", "Rejected: no position to sell", checks);
+    }
   }
 
   if (action === "BUY" || action === "SHORT") {
@@ -264,6 +272,11 @@ export function evaluateRisk(input: RiskInput): RiskResult {
   let limiting: RiskCheckCode = "APPROVED";
   let limitingDetail = `Requested ${roundReasonPercent(requested)}%`;
 
+  const closingMarketValue =
+    action === "SELL" && existing && existing.quantity < -PERCENT_EPSILON
+      ? Math.abs(existing.marketValue)
+      : existing?.marketValue ?? 0;
+
   const caps =
     action === "BUY" || action === "SHORT"
       ? openingAllocationCaps({
@@ -273,11 +286,25 @@ export function evaluateRisk(input: RiskInput): RiskResult {
           signedAllocationPercent: signedAlloc,
           constraints,
         })
-      : closingAllocationCaps({
-          marketValue: existing?.marketValue ?? 0,
-          equity: portfolio.equity,
-          constraints,
-        });
+      : [
+          ...closingAllocationCaps({
+            marketValue: closingMarketValue,
+            equity: portfolio.equity,
+            constraints,
+          }),
+          ...(action === "SELL" && existing && existing.quantity < -PERCENT_EPSILON
+            ? [
+                {
+                  code: "LEVERAGE_FORBIDDEN" as const,
+                  max:
+                    closingMarketValue > 0
+                      ? (portfolio.cash / closingMarketValue) * 100
+                      : 0,
+                  detail: "Covering more than cash allows would require leverage",
+                },
+              ]
+            : []),
+        ];
 
   for (const cap of caps) {
     if (cap.max + PERCENT_EPSILON < allowed) {

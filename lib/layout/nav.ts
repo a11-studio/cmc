@@ -37,14 +37,41 @@ export const PRIMARY_NAV = [
   },
 ] as const;
 
-export type PrimaryNavItem = (typeof PRIMARY_NAV)[number];
+const MY_TRADING_NAV = {
+  href: "/my-trading",
+  label: "My Trading",
+  match: "my-trading" as const,
+  iconSrc: "/nav/activity.svg",
+};
 
-export function primaryNavForAudience(debugControls: boolean): PrimaryNavItem[] {
-  if (debugControls) {
-    return [...PRIMARY_NAV];
+export type PrimaryNavItem =
+  | (typeof PRIMARY_NAV)[number]
+  | {
+      href: string;
+      label: string;
+      match: "my-trading";
+      iconSrc: string;
+    };
+
+export function primaryNavForAudience(
+  debugControls: boolean,
+  humanTrader = false
+): PrimaryNavItem[] {
+  const base = debugControls
+    ? [...PRIMARY_NAV]
+    : PRIMARY_NAV.filter((item) => item.match !== "settings");
+
+  if (!humanTrader) {
+    return base;
   }
 
-  return PRIMARY_NAV.filter((item) => item.match !== "settings");
+  if (debugControls) {
+    const settings = base.find((item) => item.match === "settings");
+    const rest = base.filter((item) => item.match !== "settings");
+    return [...rest, MY_TRADING_NAV, ...(settings ? [settings] : [])];
+  }
+
+  return [...base, MY_TRADING_NAV];
 }
 
 export function isActiveNavPath(pathname: string, match: PrimaryNavItem["match"]) {

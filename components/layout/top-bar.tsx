@@ -12,6 +12,7 @@ export function TopBar({
   tradingPaused,
   cycleInProgress,
   showDebugControls,
+  showHumanTrader,
 }: {
   quotes: MarketTickerQuote[];
   lastCompletedAt?: string | null;
@@ -20,11 +21,12 @@ export function TopBar({
   tradingPaused?: boolean;
   cycleInProgress?: boolean;
   showDebugControls?: boolean;
+  showHumanTrader?: boolean;
 }) {
   return (
     <header className="flex h-[72px] shrink-0 items-center gap-4 bg-[#060606] pr-3 pl-3 lg:pl-0">
       <div className="flex items-center gap-3 lg:hidden">
-        <MobileNav showDebugControls={showDebugControls} />
+        <MobileNav showDebugControls={showDebugControls} showHumanTrader={showHumanTrader} />
         <ArenaBrand showWordmark={false} />
       </div>
       <p className="hidden min-w-[148px] shrink-0 xl:block">

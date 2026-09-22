@@ -22,10 +22,16 @@ export function EquitySparkline({
   points,
   className,
   variant = "full",
+  referenceEquity,
+  trendPositive,
 }: {
   points: Array<number | EquityChartPoint>;
   className?: string;
   variant?: "full" | "hero";
+  /** When set, line color and baseline use this instead of the first history point (e.g. starting capital). */
+  referenceEquity?: number;
+  /** When set, overrides green/red stroke (e.g. live P&L vs starting capital). */
+  trendPositive?: boolean;
 }) {
   const series = useMemo(() => normalizeEquityPoints(points), [points]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -68,10 +74,10 @@ export function EquitySparkline({
   const range = max - min || 1;
   const innerWidth = Math.max(plotWidth - PAD_X * 2, 1);
   const innerHeight = plotHeight - PAD_Y * 2;
-  const baseline = series[0]!.equity;
+  const baseline = referenceEquity ?? series[0]!.equity;
   const latest = series.at(-1)!;
   const active = series[activeIndex ?? series.length - 1]!;
-  const positive = latest.equity >= baseline;
+  const positive = trendPositive ?? latest.equity >= baseline;
   const stroke = positive ? (isHero ? "#8ADF7B" : "#A3E635") : "#F87171";
   const gradientId = `${fillId}-${positive ? "up" : "down"}`;
   const change = equityChange(active.equity, baseline);

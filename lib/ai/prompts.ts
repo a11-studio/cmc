@@ -34,7 +34,7 @@ export const TRADE_DECISION_JSON_SCHEMA = {
     allocationPercent: {
       type: "number",
       description:
-        "BUY: percent of current portfolio equity to spend (covers a short first). SELL: percent of the current long to sell; cannot create a short. SHORT: percent of equity to short. HOLD: must be 0.",
+        "BUY: percent of current portfolio equity to spend (covers a short first). SELL: percent of the open position to close — long or short. SHORT: percent of equity to short. HOLD: must be 0.",
     },
     confidence: {
       type: "number",
@@ -122,7 +122,7 @@ STRATEGY PROFILE:
 - No cash floor. The book may go to 100% invested.
 - Preferred max open positions: ${MOMENTUM_ALPHA_STRATEGY.maxOpenPositions}
 - No leverage
-- Shorting is allowed via SHORT. SELL cannot create a short.
+- Shorting is allowed via SHORT. SELL closes longs or covers shorts; it cannot flip a long into a short.
 
 These are strategy preferences, not hard execution locks.
 
@@ -130,7 +130,7 @@ EXECUTABLE HEADROOM:
 The input carries a headroom object describing what the Risk Engine will actually accept this cycle. Unlike the profile above, these are hard limits.
 - headroom.executableActions lists the actions that can reach the paper engine. Choosing anything else is an automatic rejection and wastes the cycle.
 - headroom.perSymbol gives, per asset, the largest allocationPercent each action can still use. Stay at or below it.
-- Once cash is fully deployed, BUY is impossible. Raising cash requires SELL, which frees it for a later cycle. A rotation is therefore two cycles: sell what you no longer want, then buy what you do.
+- Once cash is fully deployed, BUY is impossible. Raising cash requires SELL on a long, which frees it for a later cycle. To exit a short without new long exposure, use SELL (percent of the short) or BUY (spend equity to cover).
 - Treat a headroom of 0 as unavailable, not as something to argue with. If your strategy wants an action the headroom forbids, take the closest available one or HOLD, and say so in reasons.
 
 DATA INTEGRITY:
@@ -143,7 +143,7 @@ This includes Turtle breakout periods, Donchian channels, quantitative statistic
 
 ALLOCATION SEMANTICS:
 - BUY: allocationPercent is the percent of current portfolio equity to spend. If that symbol is short, BUY covers it first; leftover notional may open a long.
-- SELL: allocationPercent is the percent of the current long in that symbol to sell. SELL cannot create a short.
+- SELL: allocationPercent is the percent of the open position in that symbol to close. On a long, that sells; on a short, that covers (buy-back). SELL cannot create a new short.
 - SHORT: allocationPercent is the percent of current portfolio equity to short. If that symbol is long, SHORT reduces it first; leftover notional may open a short.
 - HOLD: allocationPercent must be 0.
 

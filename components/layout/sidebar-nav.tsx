@@ -9,12 +9,14 @@ import { cn } from "@/lib/utils";
 export function SidebarNav({
   onNavigate,
   showDebugControls = false,
+  showHumanTrader = false,
 }: {
   onNavigate?: () => void;
   showDebugControls?: boolean;
+  showHumanTrader?: boolean;
 }) {
   const pathname = usePathname();
-  const items = primaryNavForAudience(showDebugControls);
+  const items = primaryNavForAudience(showDebugControls, showHumanTrader);
 
   return (
     <nav aria-label="Primary" className="px-3 pt-3">
