@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { OG_IMAGE, resolveSiteUrl, rootMetadata } from "@/lib/site-metadata";
+import {
+  OG_IMAGE,
+  PAGE_SEO,
+  pageMetadata,
+  resolveSiteUrl,
+  rootMetadata,
+  SITE_KEYWORDS,
+} from "@/lib/site-metadata";
 
 describe("site metadata", () => {
   const env = process.env;
@@ -34,5 +41,16 @@ describe("site metadata", () => {
         icon: [{ url: "/favicon.png", sizes: "128x128", type: "image/png" }],
       }),
     );
+    expect(metadata.keywords).toEqual([...SITE_KEYWORDS]);
+    expect(metadata.alternates?.canonical).toBe("https://example.com/");
+  });
+
+  it("sets canonical and descriptions on inner pages", () => {
+    process.env = { ...env, NEXT_PUBLIC_SITE_URL: "https://thearena.buzz" };
+    const agents = pageMetadata(PAGE_SEO.agents);
+
+    expect(agents.alternates?.canonical).toBe("https://thearena.buzz/agents");
+    expect(agents.description).toContain("seven live AI traders");
+    expect(agents.openGraph?.url).toBe("https://thearena.buzz/agents");
   });
 });

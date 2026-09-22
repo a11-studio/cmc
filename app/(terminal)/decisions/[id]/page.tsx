@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,13 +12,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AssetTicker } from "@/components/market/asset-icon";
 import { formatNumber, formatUsd } from "@/lib/format";
 import { getLiveOrSampleDecision } from "@/lib/arena/data";
+import { pageMetadata } from "@/lib/site-metadata";
 import type { DecisionRecord } from "@/types/arena";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Decision",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const decision = await getLiveOrSampleDecision(id);
+
+  if (!decision) {
+    return pageMetadata({
+      title: "Decision",
+      description: "Trade decision replay — market snapshot, model rationale, risk checks, and paper execution.",
+      path: `/decisions/${id}`,
+    });
+  }
+
+  const headline = `${decision.action} ${decision.symbol}`;
+  const rationale = decision.reasons[0]?.trim();
+
+  return pageMetadata({
+    title: `${headline} · ${decision.agentName}`,
+    description:
+      rationale ??
+      `How ${decision.agentName} decided to ${decision.action} ${decision.symbol} (${decision.status}) on live arena data.`,
+    path: `/decisions/${id}`,
+  });
+}
 
 export default async function DecisionPage({
   params,

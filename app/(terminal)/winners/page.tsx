@@ -5,12 +5,11 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PersistenceNotice } from "@/components/shared/persistence-notice";
 import { fetchDailyWinners } from "@/lib/arena/daily-winners";
 import { getArenaPersistenceMode } from "@/lib/arena/data";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Winners",
-};
+export const metadata = pageMetadataFromKey("winners");
 
 export default async function WinnersPage() {
   const [winners, persistenceMode] = await Promise.all([

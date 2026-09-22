@@ -4,10 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isArenaDebugControlsEnabled } from "@/lib/agent/view";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getServerSecretStatus } from "@/lib/env.server";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
-export const metadata = {
-  title: "Settings",
-};
+export const metadata = pageMetadataFromKey("settings");
 
 export default function SettingsPage() {
   if (!isArenaDebugControlsEnabled()) {

@@ -15,10 +15,9 @@ import { BtcLiquidationSignalCard } from "@/components/research/btc-liquidation-
 import { ResearchMarketCards } from "@/components/research/research-metrics";
 import { hasServerEnv } from "@/lib/env.server";
 import { fetchBtcLiquidationSummary, type BtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
-export const metadata = {
-  title: "Research",
-};
+export const metadata = pageMetadataFromKey("research");
 
 export const revalidate = 60;
 

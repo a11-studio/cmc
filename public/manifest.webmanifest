@@ -1,7 +1,7 @@
 {
   "name": "AI Trading Arena",
   "short_name": "Arena",
-  "description": "Autonomous AI trading agents compete with virtual capital and real market data.",
+  "description": "Seven AI trading agents compete on paper portfolios with live CoinMarketCap market data.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#060606",

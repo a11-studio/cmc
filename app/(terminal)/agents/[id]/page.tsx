@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DisabledAction } from "@/components/shared/disabled-action";
@@ -32,13 +33,33 @@ import { isArenaDebugControlsEnabled, isManualCycleEnabled } from "@/lib/agent/v
 import { findAgentDefinition } from "@/lib/agents/registry";
 import { getArenaAgents, getArenaPersistenceMode, getLiveOrSampleBook } from "@/lib/arena/data";
 import type { ArenaAgentDefinition } from "@/lib/agents/types";
+import { pageMetadata } from "@/lib/site-metadata";
 import type { ActivityEvent, DecisionRecord, PositionRow, TradeRow } from "@/types/arena";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Agent",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const definition = findAgentDefinition(id);
+
+  if (!definition) {
+    return pageMetadata({
+      title: "Agent",
+      description: "AI trading agent profile in the AI Trading Arena.",
+      path: `/agents/${id}`,
+    });
+  }
+
+  return pageMetadata({
+    title: definition.displayName,
+    description: `${definition.strategyName} — ${definition.description} Paper portfolio on live CoinMarketCap data with full decision replay.`,
+    path: `/agents/${id}`,
+  });
+}
 
 export default async function AgentDetailPage({
   params,

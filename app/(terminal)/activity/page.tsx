@@ -6,12 +6,11 @@ import { PersistenceNotice } from "@/components/shared/persistence-notice";
 import { fetchActivityFeed } from "@/lib/arena/activity-feed";
 import { getArenaPersistenceMode } from "@/lib/arena/data";
 import { isManualCycleEnabled } from "@/lib/agent/view";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Activity",
-};
+export const metadata = pageMetadataFromKey("activity");
 
 export default async function ActivityPage() {
   const persistenceMode = getArenaPersistenceMode();

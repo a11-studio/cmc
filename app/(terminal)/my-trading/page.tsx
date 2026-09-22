@@ -4,12 +4,11 @@ import { getArenaAgents } from "@/lib/arena/data";
 import { isArenaHumanTraderEnabled } from "@/lib/human-trader/flags";
 import { marketSnapshotFromQuotes } from "@/lib/human-trader/market-snapshot";
 import { getShellMarket } from "@/lib/market/shell-market";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "My Trading",
-};
+export const metadata = pageMetadataFromKey("myTrading");
 
 export default async function MyTradingPage() {
   if (!isArenaHumanTraderEnabled()) {

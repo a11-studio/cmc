@@ -3,12 +3,11 @@ import { AgentAvatar } from "@/components/agents/agent-avatar";
 import { PageHeader } from "@/components/shared/page-header";
 import { getArenaDashboard } from "@/lib/arena/data";
 import { cn } from "@/lib/utils";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Agents",
-};
+export const metadata = pageMetadataFromKey("agents");
 
 export default async function AgentsPage() {
   const { roster } = await getArenaDashboard();

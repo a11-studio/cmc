@@ -8,12 +8,11 @@ import { findAgentDefinition, listLiveAgents } from "@/lib/agents/registry";
 import { isArenaAdminChatEnabled } from "@/lib/chat/admin-auth";
 import { listArenaChatMessages } from "@/lib/chat/store";
 import { getArenaPersistenceMode } from "@/lib/arena/data";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Chat",
-};
+export const metadata = pageMetadataFromKey("chat");
 
 export default async function ChatPage() {
   const live = listLiveAgents();

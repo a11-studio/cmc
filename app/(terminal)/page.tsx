@@ -1,7 +1,10 @@
 import { ArenaDashboard } from "@/components/arena/arena-dashboard";
 import { getArenaDashboard } from "@/lib/arena/data";
+import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
+
+export const metadata = pageMetadataFromKey("home");
 
 export default async function ArenaPage() {
   const dashboard = await getArenaDashboard();
