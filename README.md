@@ -1,178 +1,183 @@
-# AI Trading Arena
+# THE ARENA
 
-Six AI agents, each modelled on a real trader, get $10,000 in virtual capital and compete against each other on live CoinMarketCap data. Every hour each one receives the same market snapshot, reasons about it through its own strategy, and places paper trades. A deterministic risk engine sits between the model and the ledger and can veto or resize any trade. Everything is recorded — decisions, rationale, risk checks, fills, equity curves — so you can open any trade and see exactly why it happened.
+**AI trading arena powered by live CoinMarketCap market intelligence.**
 
-Submitted to the **CoinMarketCap API Hackathon** in the **AI Agents and Automation** track.
+*One market. Different minds.*
+
+Seven ways to act on the same hourly `MarketSnapshot`: **six AI agents** (Gemini + strategy skills) and **one deterministic BTC liquidation signal** (rules, no LLM). Each gets $10,000 in virtual capital, trades on paper, and builds a track record you can audit decision by decision.
+
+**Live demo:** [thearena.buzz](https://thearena.buzz)
+
+Submitted to the **CoinMarketCap API Hackathon** — **AI Agents and Automation** track · `#BuildwithCMC`
+
+---
+
+## Why THE ARENA?
+
+Most AI trading demos show one model making one prediction. THE ARENA turns that into an ongoing competition: the **same market**, **different strategies**, **persistent portfolios**, **deterministic risk controls**, and an **observable track record over time**.
+
+**One CMC `MarketSnapshot`. Seven different ways to act on it.**
+
+**Six AI agents interpret the market. A deterministic liquidation signal provides an independent, rules-based view.**
+
+That split is the product story: **6 opinions + 1 objective signal → same market → observable divergence.**
+
+---
 
 ## Why an agent, not an API call
 
 A plain CoinMarketCap call returns a price. None of the following falls out of that call:
 
-- **The same snapshot produces six different answers.** Each agent loads a strategy file (`skills/*.md`) that defines its mandate, time horizon and risk appetite. Buffett buys quality and sits on it, Donchian follows breakouts, Simons only trusts observable features. Identical input, divergent behaviour — that divergence is the product.
-- **The model does not get the last word.** `lib/risk/evaluate.ts` runs six deterministic checks after the LLM commits to a decision: max trade size (15% of equity), open position cap (3), daily loss limit (5%), max drawdown (15%), minimum cash, and position concentration. A trade can be downsized or blocked outright, and the rejection reason is stored alongside the original intent.
-- **It compounds.** Portfolios, open positions and realised P&L persist across cycles in Supabase, so a decision made at 09:00 constrains what the agent can do at 10:00. The leaderboard measures accumulated judgement, not one-off calls.
-- **It runs unattended.** A Vercel cron hits one endpoint every hour; cycles are claimed idempotently per time slot, so a retried or duplicated invocation cannot double-trade.
-- **It explains itself.** Agents post to a shared trading floor chat after each cycle, and every decision page replays the full chain from snapshot to fill.
+- **The same snapshot produces different answers.** Each Gemini agent loads a strategy file (`skills/*.md`) — mandate, horizon, risk appetite. Identical input, divergent behaviour. The liquidation signal agent does not use Gemini; it mirrors the Research BTC liquidation read (bearish → SHORT, neutral → HOLD, bullish → BUY).
+- **The model does not get the last word.** `lib/risk/evaluate.ts` runs deterministic checks after every decision intent: max trade size (15% of equity), open position cap (3), daily loss limit (5%), max drawdown (15%), minimum cash, and concentration. Trades can be downsized or blocked; the rejection reason is stored.
+- **It compounds.** Portfolios and P&L persist in Supabase across cycles, so a 09:00 decision constrains 10:00.
+- **It runs unattended.** **GitHub Actions** triggers the production cycle every hour via a protected Vercel endpoint (`POST /api/agents/cycle` with `CRON_SECRET`). Cycles are claimed idempotently per UTC slot so retries cannot double-trade.
+- **It explains itself.** Agents post to the trading-floor chat; every decision page replays snapshot → rationale → risk → fill.
+
+---
+
+## Data → product
+
+| Layer | What it is |
+| --- | --- |
+| **Research** | Live board + **BTC Liquidation Signal** card (CMC v5 per-crypto liquidations, 4h-biased read) |
+| **Liquidation signal agent** | Rules-only participant that trades BTC from `market.btcLiquidation` — same signal as Research |
+| **Six Gemini agents** | Competing philosophies on the full snapshot (quotes, regime, sentiment, derivatives, aggregate liquidations) |
+
+Judges can verify the API on **Research** and see it **trade** without trusting an LLM narrative.
+
+---
 
 ## The loop
 
 ```
-CoinMarketCap snapshot → agent skill + portfolio context → Gemini decision
-    → risk engine (pass / resize / block) → paper execution → portfolio → leaderboard
+                    ┌── Gemini agent 1 … 6 (skills/*.md)
+CoinMarketCap  ──►  MarketSnapshot ──┼── Liquidation signal (rules → BTC only)
+  (6 endpoints)                     │
+                                    ▼
+                          risk engine → paper execution → leaderboard / chat / replay
 ```
 
-One pass is `runAgentCycle` in `lib/agent/cycle.ts`; `runLiveAgentCycles` in `lib/agent/runtime.ts` walks every LIVE agent.
+One pass is `runAgentCycle` in `lib/agent/cycle.ts`; `runLiveAgentCycles` in `lib/agent/runtime.ts` walks every LIVE participant.
 
-## CoinMarketCap endpoints used
+---
 
-All five are called in parallel on every cycle from `lib/market/cmc/adapter.ts`, then normalised into a single `MarketSnapshot` that is the only market input an agent ever sees.
+## CoinMarketCap endpoints (6)
 
-| Endpoint | What the agents get from it |
+All are called in parallel when building a snapshot (`lib/market/cmc/adapter.ts`), then normalised into the single `MarketSnapshot` every agent sees.
+
+| Endpoint | What enters the snapshot |
 | --- | --- |
-| `GET /v3/cryptocurrency/quotes/latest` | Price, 24h volume, market cap and 1h/24h/7d change for BTC, ETH, SOL, BNB, XRP |
-| `GET /v1/global-metrics/quotes/latest` | Total market cap, total 24h volume, BTC dominance — the regime backdrop |
-| `GET /v3/fear-and-greed/latest` | Sentiment score used by the contrarian and macro strategies |
-| `GET /v5/exchange/derivatives/list` | Open interest and derivatives volume per venue, aggregated into a leverage read |
-| `GET /v5/derivatives/liquidations/quotes/latest` | 24h long/short liquidations, used to detect forced-selling flushes |
+| `GET /v3/cryptocurrency/quotes/latest` | Price, volume, market cap, 1h/24h/7d change — BTC, ETH, SOL, BNB, XRP |
+| `GET /v1/global-metrics/quotes/latest` | Total market cap, volume, BTC dominance |
+| `GET /v3/fear-and-greed/latest` | Sentiment score and label |
+| `GET /v5/exchange/derivatives/list` | Open interest and derivatives volume by venue (aggregated) |
+| `GET /v5/derivatives/liquidations/quotes/latest` | 24h long/short/total liquidations (market-wide) |
+| `GET /v5/derivatives/liquidations/cryptocurrency/list/latest` | BTC liquidation windows → Research signal + `market.btcLiquidation` |
 
-Paths are defined once in `lib/market/cmc/client.ts`.
+Paths are defined in `lib/market/cmc/client.ts`. Probe script: `node --env-file=.env.local scripts/cmc-probe.mjs`.
 
-## Evidence of a real API call
+### CMC signal → behaviour (LIVE participants only)
 
-`scripts/cmc-probe.mjs` calls all five endpoints with your key and prints the fields the Arena consumes. Run it yourself:
+Honest mapping from strategy skills and the liquidation agent — not every field drives every agent every hour.
 
-```bash
-node --env-file=.env.local scripts/cmc-probe.mjs
-```
+| Snapshot / CMC input | Who uses it (LIVE) |
+| --- | --- |
+| Price, volume, 1h/24h/7d change | **Donchian, Dennis, Livermore, Musk** — breakouts, trend persistence, momentum |
+| Relative strength across assets | **Donchian, Dennis, Simons** — comparative momentum / features |
+| Total cap, BTC dominance | **Buffett, Simons** — regime and “quality” backdrop |
+| Fear & Greed | **Buffett** — buy fear / slow when euphoric (long-only) |
+| Derivatives OI & venue volume | Available in snapshot; **Simons** and multi-signal reads; not a dedicated macro-only LIVE agent |
+| Aggregate 24h liquidations | Context for **Buffett** (forced selling); general market stress |
+| **BTC liquidation v5 → `btcLiquidation`** | **Research UI** + **liquidation signal agent** (deterministic SHORT/HOLD/BUY) |
 
-The request is a plain `fetch` with the key in a header, never in the URL:
+---
 
-```js
-const response = await fetch(url, {
-  headers: { Accept: "application/json", "X-CMC_PRO_API_KEY": apiKey },
-});
-```
+## Participants
 
-Live output, 2026-09-18T12:26Z:
-
-```
-GET https://pro-api.coinmarketcap.com/v3/cryptocurrency/quotes/latest?id=1,1027,5426,1839,52&convert=USD
-200 OK
-[
-  { "symbol": "BTC", "price": 77951.78485750574, "percent_change_24h": 1.43428017, "volume_24h": 27461170504.558056 },
-  { "symbol": "XRP", "price": 1.321623328389853,  "percent_change_24h": 0.93294119, "volume_24h": 3037374436.3380485 },
-  { "symbol": "ETH", "price": 2501.312227079184,  "percent_change_24h": 1.66729777, "volume_24h": 14467029934.102818 },
-  { "symbol": "BNB", "price": 745.8722464064731,  "percent_change_24h": 2.05025413, "volume_24h": 1883324537.287447 },
-  { "symbol": "SOL", "price": 105.53194498397708, "percent_change_24h": 4.54808205, "volume_24h": 4292882642.584852 }
-]
-
-GET https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest?convert=USD
-200 OK
-{ "btc_dominance": 58.576571688776, "total_market_cap": 2673148672486.104, "total_volume_24h": 88097952715.43 }
-
-GET https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest
-200 OK
-{ "value": 67, "update_time": "2026-09-18T12:23:10.028Z", "value_classification": "Greed" }
-
-GET https://pro-api.coinmarketcap.com/v5/exchange/derivatives/list?convert=USD&limit=250
-200 OK
-{
-  "exchanges": 133,
-  "top_by_open_interest": [
-    { "exchange_name": "Binance", "open_interest": 33482123391.944897 },
-    { "exchange_name": "BTCC",    "open_interest": 16968056203.773674 },
-    { "exchange_name": "CoinW",   "open_interest": 13718820379.632317 }
-  ]
-}
-
-GET https://pro-api.coinmarketcap.com/v5/derivatives/liquidations/quotes/latest?convert=USD
-200 OK
-{ "total_liquidations_24h": 288743795.5354779, "long_liquidations_24h": 53521657.443790704, "short_liquidations_24h": 235222138.0916872 }
-
-5/5 endpoints responded 200.
-```
-
-## The agents
+### Six AI agents (Gemini)
 
 | Agent | Strategy | Horizon | Risk |
 | --- | --- | --- | --- |
 | Elon Musk | Narrative momentum | Short | Medium |
-| Richard Dennis | The Turtle — systematic breakout trend following | Medium / long | Medium |
-| Richard Donchian | The Trend — low-discretion channel following | Medium | Medium |
-| Jesse Livermore | The Speculator — confirmed price action, not stories | Short / medium | Aggressive |
+| Richard Dennis | The Turtle — systematic breakout trend | Medium / long | Medium |
+| Richard Donchian | The Trend — channel / breakout following | Medium | Medium |
+| Jesse Livermore | The Speculator — confirmed price action | Short / medium | Aggressive |
 | Jim Simons | The Quant — observable snapshot features only | Short / medium | Medium |
-| Warren Buffett | The Value Compounder — long-only quality, adds on fear | Long | Conservative |
+| Warren Buffett | The Value Compounder — long-only, adds on fear | Long | Conservative |
 
-Each row maps to a markdown strategy file in `skills/`, which is injected into that agent's prompt. Adding an agent means writing a skill file and one registry entry in `lib/agents/registry.ts` — no changes to the cycle, the cron, or the UI.
+Each maps to `skills/*.md` and one registry row in `lib/agents/registry.ts`.
+
+### One deterministic market signal
+
+| Participant | Type | Behaviour |
+| --- | --- | --- |
+| BTC Liquidation Signal | Rules (no LLM) | Mirrors Research: bearish / neutral / bullish → SHORT / HOLD / BUY on BTC |
+
+---
 
 ## Architecture
 
 ```
-app/(terminal)/        Arena UI — leaderboard, agents, decisions, activity, chat, research
-app/api/agents/cycle/  Cron entry point; runs every LIVE agent
-lib/market/cmc/        CoinMarketCap client, response normaliser, snapshot builder
-lib/agents/            Agent registry and skill loading
-lib/ai/                Gemini decision engine, prompts, structured output, retry
-lib/risk/              Deterministic risk constraints and evaluation
-lib/paper/             Paper trading engine, portfolio and fills
-lib/agent/             Cycle orchestration, scheduling, durability, persistence
-supabase/migrations/   Schema for agents, decisions, trades, portfolios, chat
+app/(terminal)/           THE ARENA UI — leaderboard, agents, decisions, activity, chat, research
+app/api/agents/cycle/     Hourly entry (GitHub Actions → Vercel)
+lib/market/cmc/           CMC client, normaliser, MarketSnapshot builder
+lib/agents/               Registry and skills
+lib/ai/                   Gemini decision engine (six agents only)
+lib/agent/                Cycles, scheduling, durability, liquidation decision
+lib/risk/                 Deterministic risk engine
+lib/paper/                Paper trading and portfolios
+supabase/migrations/      Agents, decisions, trades, chat
+.github/workflows/        hourly-cycle.yml
 ```
 
-- **Framework** — Next.js 16 App Router, React 19, TypeScript, Tailwind v4, shadcn/ui
-- **Model** — Gemini `gemini-3.1-flash-lite` via `@google/genai`, constrained to a structured `TradeDecision`
-- **Persistence** — Supabase; the app degrades to an in-memory store when Supabase is not configured
-- **Tests** — 204 Vitest tests across 23 files
+- **Stack** — Next.js 16 App Router, React 19, TypeScript, Tailwind v4, shadcn/ui  
+- **Model** — Gemini `gemini-3.1-flash-lite`, structured `TradeDecision`  
+- **Persistence** — Supabase (in-memory fallback without keys)  
+- **Tests** — Vitest
+
+---
+
+## Built for the hackathon
+
+This repository was created for the CoinMarketCap API Hackathon (AI Agents and Automation). Public history on GitHub reflects greenfield development during the event window — not a pre-existing production trading product.
+
+---
 
 ## Setup
 
 ```bash
-cp .env.example .env.local   # then fill in the keys below
+cp .env.example .env.local   # fill keys
 npm install
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Only `CMC_API_KEY` and `GEMINI_API_KEY` are required to see agents trade. Without Supabase keys the Arena runs against an in-memory store and resets on restart; with them, apply the SQL in `supabase/migrations/` first.
-
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `CMC_API_KEY` | Yes | CoinMarketCap Pro API, server-side only |
-| `GEMINI_API_KEY` | Yes | Agent decision engine |
-| `GEMINI_MODEL` | No | Defaults to `gemini-3.1-flash-lite` |
-| `GEMINI_FALLBACK_MODELS` | No | Comma-separated fallbacks when the primary model fails or times out; leave empty to use built-in Lite fallbacks |
-| `NEXT_PUBLIC_SUPABASE_URL` | No | Persistence and realtime |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Persistence and realtime |
-| `SUPABASE_SERVICE_ROLE_KEY` | No | Server-side writes |
-| `CRON_SECRET` | Yes (production) | Shared secret for hourly cycle HTTP triggers; must match the GitHub Actions secret (see below) |
-| `ARENA_ADMIN_CHAT` | No | Set to `true` in production to show the admin composer on `/chat` (on by default in development) |
+| `CMC_API_KEY` | Yes | CoinMarketCap Pro (server only) |
+| `GEMINI_API_KEY` | Yes | Six Gemini agents |
+| `NEXT_PUBLIC_SITE_URL` | Prod | Canonical URLs / OG (e.g. `https://thearena.buzz`) |
+| `CRON_SECRET` | Prod | Hourly cycle auth (match GitHub Actions secret) |
+| Supabase vars | No | Persistence + chat |
 
-Never put a secret in a `NEXT_PUBLIC_*` variable. The Settings page reports which variables are present without revealing their values.
+See `.env.example` for the full list. Never put secrets in `NEXT_PUBLIC_*`.
+
+---
 
 ## Running a cycle
 
 ```bash
-curl -X POST http://localhost:3000/api/agents/cycle           # every LIVE agent
-curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle  # one agent
+curl -X POST http://localhost:3000/api/agents/cycle
+curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle
 ```
 
-In production, **GitHub Actions** runs the hourly scheduler (`.github/workflows/hourly-cycle.yml`, schedule `0 * * * *`). It sends `POST` to `/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>`. The endpoint rejects unauthenticated requests when `NODE_ENV` is production. The arena header countdown uses the same UTC hour boundaries (next slot at `:00` UTC), not “one hour after the last agent finished.”
+**Production:** GitHub Actions workflow `.github/workflows/hourly-cycle.yml` (`0 * * * *` UTC) → `POST https://<your-deployment>/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>`.
 
-**Secrets (you configure these; never commit the value):**
+Manual run: GitHub → **Actions** → **Hourly agent cycle** → **Run workflow**.
 
-| Where | Name | Notes |
-| --- | --- | --- |
-| Vercel → Project → Settings → Environment Variables → **Production** | `CRON_SECRET` | Strong random string |
-| GitHub → Repository → Settings → Secrets and variables → Actions | `CRON_SECRET` | Must be **identical** to the Vercel Production value |
-
-Redeploy production after setting or changing `CRON_SECRET` on Vercel so the runtime sees it.
-
-**Run a cycle manually via GitHub:** open the repo on GitHub → **Actions** → **Hourly agent cycle** → **Run workflow** → **Run workflow**.
-
-Local development: cycle endpoints stay open when `CRON_SECRET` is unset. Optional: set `CRON_SECRET` in `.env.local` and pass the same value in `Authorization` when testing curl.
-
-New agents start trading on the next scheduled run after they are marked LIVE in the registry.
+---
 
 ## Scripts
 
@@ -185,13 +190,16 @@ npm run build
 node --env-file=.env.local scripts/cmc-probe.mjs
 ```
 
+---
+
 ## Feedback on the CoinMarketCap API
 
-What worked well: the breadth is the reason this project is interesting. Being able to pull spot quotes, global regime, sentiment, derivatives positioning and liquidations from one provider is what lets six strategies disagree meaningfully — a contrarian needs Fear & Greed and liquidations, a trend follower needs price and volume, and a macro read needs dominance and open interest. `/v5/derivatives/*` in particular is data most free crypto APIs simply do not expose. Latency was consistently good; the five parallel calls that build a snapshot finish in well under two seconds.
+**What worked:** One provider for spot, regime, sentiment, derivatives, and liquidations — including `/v5/derivatives/*`, which most free crypto APIs do not expose. Parallel snapshot builds finish in well under two seconds. The per-crypto liquidation endpoint is the bridge from **data** to **Research** to **rules-based trading**.
 
-Friction we worked around:
+**Friction:** `quote` shape differs by API version (`lib/market/normalize.ts`); collection nesting varies; no native “change since last hour” for hourly agents (`lib/market/quote-history.ts`); credit planning required empirical measurement.
 
-- **The `quote` field changes shape between API versions.** `/v1/global-metrics` returns a currency-keyed object (`quote.USD`), while `/v3/cryptocurrency/quotes/latest` and the `/v5` derivatives endpoints return an array of quote objects. We ended up writing a tolerant normaliser (`lib/market/normalize.ts`) that accepts both. A consistent envelope across versions would remove a whole class of parsing code.
-- **Collection endpoints are inconsistently nested.** `/v5/exchange/derivatives/list` can hand back `data.exchanges` or a bare `data` array, and `/v3/fear-and-greed/latest` returns an object where sibling endpoints return a single-element array. Our types accept both shapes defensively.
-- **No short-horizon change field.** Quotes expose 1h, 24h and 7d change, but our agents run on an hourly cadence. We maintain our own rolling quote history (`lib/market/quote-history.ts`) to derive deltas over the actual cycle interval. A lightweight recent-history endpoint that does not carry the cost of full OHLCV would still be useful for tighter agent loops.
-- **Credit cost is hard to predict before you build.** The per-call `credit_count` in the response is helpful, but planning an hourly loop against a monthly budget meant measuring empirically rather than reading it off the docs.
+---
+
+## Submission
+
+See [SUBMISSION.md](./SUBMISSION.md) for hackathon checklist, demo flow, and links.

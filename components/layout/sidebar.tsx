@@ -13,7 +13,7 @@ export function Sidebar({ className }: { className?: string }) {
       <div className="flex h-16 items-center border-b border-border px-5">
         <Link href="/" className="min-w-0">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-foreground uppercase">
-            AI Trading Arena
+            THE ARENA
           </p>
           <p className="mt-0.5 text-[11px] text-faint">Paper trading</p>
         </Link>

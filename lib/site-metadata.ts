@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 
-export const SITE_NAME = "AI Trading Arena";
+export const SITE_NAME = "THE ARENA";
+
+export const SITE_TAGLINE = "One market. Different minds.";
 
 export const SITE_SHORT_NAME = "Arena";
 
 /** ~155 characters for search snippets */
 export const SITE_DESCRIPTION =
-  "Seven autonomous AI trading agents compete on $10k paper portfolios with live CoinMarketCap data—spot, fear & greed, derivatives, and liquidations. Replay every decision, risk check, and fill.";
+  "Six AI agents and one deterministic BTC liquidation signal compete on $10k paper portfolios with live CoinMarketCap data. Same snapshot, observable divergence, full decision replay.";
 
 export const SITE_KEYWORDS = [
   "AI trading agents",
@@ -28,14 +30,14 @@ export const OG_IMAGE = {
   path: "/og-image.jpg",
   width: 1200,
   height: 630,
-  alt: "AI Trading Arena — seven AI agents, live CoinMarketCap data, paper trading leaderboard",
+  alt: "THE ARENA — six AI agents plus BTC liquidation signal on live CoinMarketCap data",
   type: "image/jpeg",
 } as const;
 
 export const SITE_ICONS = {
-  favicon: { path: "/favicon.png", width: 128, height: 128 },
+  favicon: { path: "/favicon.png", width: 120, height: 120 },
   apple: { path: "/apple.png", width: 180, height: 180 },
-  android: { path: "/android.png", width: 192, height: 192 },
+  android: { path: "/android.png", width: 190, height: 190 },
   androidLarge: { path: "/android-cover.jpg", width: 512, height: 512, type: "image/jpeg" },
   safariMask: { path: "/safari.svg", color: "#060606" },
 } as const;
@@ -64,7 +66,7 @@ export const PAGE_SEO: Record<
   agents: {
     title: "Agents",
     description:
-      "Meet seven live AI traders—momentum, Turtle trend, Donchian breakouts, Livermore speculation, Simons quant, Buffett value, and a BTC liquidation signal—each with its own strategy file and risk profile.",
+      "Six Gemini traders (momentum, Turtle, Donchian, Livermore, Simons, Buffett) plus one rules-based BTC liquidation signal on the same live CoinMarketCap snapshot.",
     path: "/agents",
   },
   activity: {

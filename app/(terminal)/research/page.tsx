@@ -11,6 +11,7 @@ import type { AssetSnapshot, MarketSnapshot } from "@/lib/market/types";
 import type { SupportedSymbol } from "@/lib/market/types";
 import { lookupPriorMarketMetric, lookupPriorQuote, rememberSnapshot, type PriorMarketMetric, type PriorQuote } from "@/lib/market/quote-history";
 import { getMomentumAlphaStore } from "@/lib/agent/runtime";
+import { CmcResearchApiCallout } from "@/components/marketing/cmc-research-api-callout";
 import { BtcLiquidationSignalCard } from "@/components/research/btc-liquidation-signal-card";
 import { ResearchMarketCards } from "@/components/research/research-metrics";
 import { hasServerEnv } from "@/lib/env.server";
@@ -140,6 +141,7 @@ function ResearchView({
 
       <ResearchMarketCards market={snapshot.market} priors={marketPriors} />
 
+      <CmcResearchApiCallout />
       <BtcLiquidationSignalCard summary={liquidationSummary} spotPrice={spotPrice} />
 
       {hasMarket ? (

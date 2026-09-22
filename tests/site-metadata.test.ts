@@ -38,7 +38,7 @@ describe("site metadata", () => {
     expect(metadata.manifest).toBe("/manifest.webmanifest");
     expect(metadata.icons).toEqual(
       expect.objectContaining({
-        icon: [{ url: "/favicon.png", sizes: "128x128", type: "image/png" }],
+        icon: [{ url: "/favicon.png", sizes: "120x120", type: "image/png" }],
       }),
     );
     expect(metadata.keywords).toEqual([...SITE_KEYWORDS]);
@@ -50,7 +50,7 @@ describe("site metadata", () => {
     const agents = pageMetadata(PAGE_SEO.agents);
 
     expect(agents.alternates?.canonical).toBe("https://thearena.buzz/agents");
-    expect(agents.description).toContain("seven live AI traders");
+    expect(agents.description).toContain("Six Gemini traders");
     expect(agents.openGraph?.url).toBe("https://thearena.buzz/agents");
   });
 });

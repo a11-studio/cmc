@@ -1,7 +1,7 @@
 {
-  "name": "AI Trading Arena",
+  "name": "THE ARENA",
   "short_name": "Arena",
-  "description": "Seven AI trading agents compete on paper portfolios with live CoinMarketCap market data.",
+  "description": "Six AI agents and a deterministic BTC liquidation signal on live CoinMarketCap paper portfolios.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#060606",
@@ -15,13 +15,13 @@
     },
     {
       "src": "/android.png",
-      "sizes": "192x192",
+      "sizes": "190x190",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/favicon.png",
-      "sizes": "128x128",
+      "sizes": "120x120",
       "type": "image/png",
       "purpose": "any"
     }

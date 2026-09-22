@@ -49,7 +49,7 @@ export async function generateMetadata({
   if (!definition) {
     return pageMetadata({
       title: "Agent",
-      description: "AI trading agent profile in the AI Trading Arena.",
+      description: "Trading participant profile in THE ARENA.",
       path: `/agents/${id}`,
     });
   }
