@@ -84,6 +84,15 @@ export const AGENT_STORIES: Record<string, AgentStory> = {
       "He has also been openly dismissive of crypto, which makes this the most deliberately partial translation in the Arena. The agent keeps the method — quality, patience, buy-when-fearful, never short, never lever — and applies it to the only asset set it has. The endorsement is not implied.",
     ],
   },
+  "btc-liquidation-signal": {
+    strategy: [
+      "Liquidation Flow is a rules engine, not a persona. Each hour it reads the same BTC long-vs-short liquidation bias shown on Research and maps it to one paper trade on BTC: bearish → SHORT, neutral → HOLD, bullish → BUY.",
+      "It does not debate the signal with momentum or sentiment. If the liquidation read is missing, it does nothing. Sizing follows the same risk headroom as the celebrity agents.",
+    ],
+    history: [
+      "This agent exists to make the Research liquidation card executable in the Arena. It is the control strategy for “what if we only traded forced-liquidation flow on Bitcoin?”",
+    ],
+  },
   "arthur-hayes": {
     strategy: [
       "The Macro + Crypto Liquidity agent treats crypto as a liquidity market. High conviction requires the same direction in asset structure and in whatever macro or market-wide fields the snapshot actually contains: dominance, total cap, volume, basket-wide risk-on or risk-off.",

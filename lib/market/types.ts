@@ -12,6 +12,13 @@ export type NewsSignal = {
   url?: string;
 };
 
+export type BtcLiquidationSnapshotRead = {
+  signal: "bullish" | "bearish" | "neutral";
+  reason: string;
+  basedOn: "1h" | "4h" | "24h";
+  updatedAt?: string;
+};
+
 export type AssetSnapshot = {
   symbol: string;
   price: number;
@@ -48,6 +55,8 @@ export type MarketSnapshot = {
     liquidations24h?: number;
     longLiquidations24h?: number;
     shortLiquidations24h?: number;
+    /** Same read as Research → BTC Liquidation signal (4h-biased). */
+    btcLiquidation?: BtcLiquidationSnapshotRead;
   };
   news?: NewsSignal[];
 };

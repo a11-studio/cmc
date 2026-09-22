@@ -25,7 +25,8 @@ export type AgentMark =
   | "quant"
   | "burry"
   | "buffett"
-  | "hayes";
+  | "hayes"
+  | "liquidation";
 
 export type MarketTickerQuote = {
   symbol: SupportedSymbol;

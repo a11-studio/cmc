@@ -17,6 +17,7 @@ import {
   normalizeQuotesResponse,
 } from "@/lib/market/normalize";
 import { ASSET_CATALOG, parseSupportedSymbols } from "@/lib/market/symbols";
+import { fetchBtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary";
 import { rememberSnapshot } from "@/lib/market/quote-history";
 import type { MarketDataProvider, MarketSnapshot } from "@/lib/market/types";
 
@@ -52,7 +53,8 @@ export class CoinMarketCapProvider implements MarketDataProvider {
     const timestamp = this.now().toISOString();
     const cycleId = this.createCycleId();
 
-    const [quotesPayload, globalPayload, fearGreedPayload, derivativesPayload, liquidationsPayload] = await Promise.all([
+    const [quotesPayload, globalPayload, fearGreedPayload, derivativesPayload, liquidationsPayload, btcLiquidation] =
+      await Promise.all([
       cmcGetJson({
         apiKey: this.apiKey,
         path: CMC_QUOTES_PATH,
@@ -88,6 +90,7 @@ export class CoinMarketCapProvider implements MarketDataProvider {
         fetchImpl: this.fetchImpl,
         required: false,
       }),
+      fetchBtcLiquidationSummary({ apiKey: this.apiKey, fetchImpl: this.fetchImpl }),
     ]);
 
     const snapshot = normalizeQuotesResponse(quotesPayload, supported, {
@@ -103,6 +106,16 @@ export class CoinMarketCapProvider implements MarketDataProvider {
         ...normalizeFearGreed(fearGreedPayload),
         ...derivatives,
         ...normalizeLiquidations(liquidationsPayload),
+        ...(btcLiquidation
+          ? {
+              btcLiquidation: {
+                signal: btcLiquidation.read.signal,
+                reason: btcLiquidation.read.reason,
+                basedOn: btcLiquidation.read.basedOn,
+                ...(btcLiquidation.updatedAt ? { updatedAt: btcLiquidation.updatedAt } : {}),
+              },
+            }
+          : {}),
       },
     };
 

@@ -90,6 +90,7 @@ describe("agent skill registry", () => {
       "jesse-livermore",
       "jim-simons",
       "warren-buffett",
+      "btc-liquidation-signal",
     ]);
 
     for (const agent of ARENA_AGENTS) {
@@ -97,7 +98,11 @@ describe("agent skill registry", () => {
       expect(agent.strategyName.trim()).not.toBe("");
       expect(agent.description.trim()).not.toBe("");
       expect(isSkillPath(agent.skillPath)).toBe(true);
-      expect([...agent.preferredAssets]).toEqual(["BTC", "ETH", "SOL", "BNB", "XRP"]);
+      if (agent.id === "btc-liquidation-signal") {
+        expect([...agent.preferredAssets]).toEqual(["BTC"]);
+      } else {
+        expect([...agent.preferredAssets]).toEqual(["BTC", "ETH", "SOL", "BNB", "XRP"]);
+      }
       expect(agent.initialCapital).toBe(MOMENTUM_ALPHA_STRATEGY.initialCapital);
       expect(["LIVE", "READY", "SIMULATION"]).toContain(agent.status);
       const story = getAgentStory(agent.id);
@@ -136,7 +141,7 @@ describe("agent skill registry", () => {
     expect(elonPersonality).not.toBe(dennisPersonality);
   });
 
-  it("keeps six named strategies LIVE", () => {
+  it("keeps seven named strategies LIVE", () => {
     const live = listArenaAgents().filter((agent) => agent.status === "LIVE");
     expect(live.map((agent) => agent.id)).toEqual([
       "momentum-alpha",
@@ -145,6 +150,7 @@ describe("agent skill registry", () => {
       "jesse-livermore",
       "jim-simons",
       "warren-buffett",
+      "btc-liquidation-signal",
     ]);
     expect(getAgentDefinition("jim-simons").strategyName).toBe("The Quant");
     expect(getAgentDefinition("warren-buffett").strategyName).toBe("The Value Compounder");
@@ -159,6 +165,7 @@ describe("agent skill registry", () => {
       "jesse-livermore",
       "jim-simons",
       "warren-buffett",
+      "btc-liquidation-signal",
     ];
 
     expect(roster.filter((agent) => agent.runtimeStatus === "LIVE").map((agent) => agent.id)).toEqual(liveIds);

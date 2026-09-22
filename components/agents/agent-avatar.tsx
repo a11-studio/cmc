@@ -28,6 +28,7 @@ const markStyles: Record<AgentMark, string> = {
   burry: "bg-negative-muted text-negative",
   buffett: "bg-[#0B1A14] text-[#6EE7B7]",
   hayes: "bg-[#1A1208] text-[#FDBA74]",
+  liquidation: "bg-[#1A0F14] text-[#F87171]",
 };
 
 function MomentumGlyph() {
@@ -136,6 +137,7 @@ const glyphs: Record<AgentMark, ReactNode> = {
   burry: <ContrarianGlyph />,
   buffett: <CompoundGlyph />,
   hayes: <MacroGlyph />,
+  liquidation: <ContrarianGlyph />,
 };
 
 const sizePx = {

@@ -2,6 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 import { createGeminiDecisionEngine } from "@/lib/ai/provider";
+import {
+  isBtcLiquidationSignalAgent,
+  tradeDecisionFromBtcLiquidationSignal,
+} from "@/lib/agent/btc-liquidation-decision";
 import { runAgentCycle } from "@/lib/agent/cycle";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import {
@@ -65,6 +69,10 @@ function cycleDependencies(store: AgentCycleStore): AgentCycleDependencies {
       return floorChatForAgent(agentId, recent);
     },
     async generateTradeDecision(context) {
+      if (isBtcLiquidationSignalAgent(context.agentId)) {
+        return tradeDecisionFromBtcLiquidationSignal(context);
+      }
+
       return createGeminiDecisionEngine().generateTradeDecision(context);
     },
     evaluateRisk,
