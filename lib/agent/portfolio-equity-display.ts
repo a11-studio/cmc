@@ -1,17 +1,18 @@
 import type { EquityCurvePoint } from "@/types/arena";
 
 /**
- * Richard Donchian positions were wiped in DB during cycles 497233–497235 (Sep 2026).
+ * Richard Donchian positions were wiped in DB during cycles 497233–497236 (Sep 2026).
  * portfolio_snapshots from that window are kept for audit but must not shape UI charts.
- * Display history resumes at cycle 497236 (manual DB recovery + safeguard deploy).
+ * Cycle 497236 was BLOCKED with cash-only equity while positions were still empty.
+ * Display history resumes at 497237 — first valid post-repair COMPLETED portfolio snapshot.
  */
 export const RICHARD_DONCHIAN_EQUITY_DISPLAY_RECOVERY = {
   agentId: "richard-donchian",
   firstCorruptedCycleNumber: 497233,
-  recoveryCycleId: "richard-donchian-497236",
-  recoveryCycleNumber: 497236,
-  recoveryTimestamp: "2026-09-22T03:59:00+00:00",
-  recoveryEquity: 10757.575513025735,
+  firstDisplayedPostRepairCycleId: "richard-donchian-497237",
+  firstDisplayedPostRepairCycleNumber: 497237,
+  firstDisplayedPostRepairTimestamp: "2026-09-22T05:00:11.548+00:00",
+  firstDisplayedPostRepairEquity: 10719.8812687263,
 } as const;
 
 const DONCHIAN_CYCLE_PREFIX = `${RICHARD_DONCHIAN_EQUITY_DISPLAY_RECOVERY.agentId}-`;
@@ -32,9 +33,12 @@ export function isRichardDonchianCorruptedEquitySnapshot(cycleId: string | undef
     return false;
   }
 
-  const { firstCorruptedCycleNumber, recoveryCycleNumber } = RICHARD_DONCHIAN_EQUITY_DISPLAY_RECOVERY;
+  const { firstCorruptedCycleNumber, firstDisplayedPostRepairCycleNumber } =
+    RICHARD_DONCHIAN_EQUITY_DISPLAY_RECOVERY;
 
-  return cycleNumber >= firstCorruptedCycleNumber && cycleNumber < recoveryCycleNumber;
+  return (
+    cycleNumber >= firstCorruptedCycleNumber && cycleNumber < firstDisplayedPostRepairCycleNumber
+  );
 }
 
 /** Read-model filter for chart equity history (no database writes). */
