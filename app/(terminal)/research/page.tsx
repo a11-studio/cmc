@@ -15,7 +15,8 @@ import { CmcResearchApiCallout } from "@/components/marketing/cmc-research-api-c
 import { BtcLiquidationSignalCard } from "@/components/research/btc-liquidation-signal-card";
 import { ResearchMarketCards } from "@/components/research/research-metrics";
 import { hasServerEnv } from "@/lib/env.server";
-import { fetchBtcLiquidationSummary, type BtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary";
+import { getCachedBtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary-cache";
+import type { BtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary";
 import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const metadata = pageMetadataFromKey("research");
@@ -79,9 +80,7 @@ export default async function ResearchPage({
   let liquidationSummary: BtcLiquidationSummary | null = null;
 
   if (btc && hasServerEnv("CMC_API_KEY")) {
-    liquidationSummary = await fetchBtcLiquidationSummary({
-      apiKey: process.env.CMC_API_KEY ?? "",
-    });
+    liquidationSummary = await getCachedBtcLiquidationSummary();
   }
 
   return (
