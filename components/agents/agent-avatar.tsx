@@ -13,7 +13,7 @@ const portraits: Partial<Record<AgentMark, string>> = {
   burry: "/agents/michael-burry.jpg",
   buffett: "/agents/warren-buffett.jpg",
   hayes: "/agents/arthur-hayes.jpg",
-  liquidation: "/agents/btc-liquidation-signal.jpg",
+  liquidation: "/agents/btc-liquidation-signal.png",
 };
 
 const markStyles: Record<AgentMark, string> = {
@@ -193,7 +193,10 @@ export function AgentAvatar({
           alt=""
           width={pixels}
           height={pixels}
-          className="size-full object-cover object-[center_18%]"
+          className={cn(
+            "size-full object-cover",
+            mark === "liquidation" ? "object-center" : "object-[center_18%]"
+          )}
         />
       </span>
     );
