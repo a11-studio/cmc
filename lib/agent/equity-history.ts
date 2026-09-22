@@ -10,6 +10,7 @@ import {
   ttlCacheKey,
 } from "@/lib/server/ttl-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { filterAgentPortfolioEquityHistoryForDisplay } from "@/lib/agent/portfolio-equity-display";
 import type { EquityCurvePoint } from "@/types/arena";
 
 /** Chart history — lightweight rows only (no cycle payloads). */
@@ -54,7 +55,7 @@ async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promis
     cache: "miss",
   });
 
-  return rows.flatMap((row) => {
+  const points = rows.flatMap((row) => {
     const equity = row.equity;
     const at = row.timestamp;
 
@@ -70,6 +71,8 @@ async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promis
       },
     ];
   });
+
+  return filterAgentPortfolioEquityHistoryForDisplay(agentId, points);
 }
 
 export async function fetchAgentPortfolioEquityHistory(agentId: string): Promise<EquityCurvePoint[]> {
