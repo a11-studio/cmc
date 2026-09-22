@@ -51,10 +51,7 @@ export function ActivityFeedPanel({
 
   if (latest.cycles.length === 0 && older.cycles.length === 0) {
     return (
-      <EmptyState
-        title="No cycles yet."
-        description="Run Cycle or wait for the next hourly slot. Duplicate slots are skipped."
-      />
+      <EmptyState title="No cycles yet." description="Run a cycle or wait for the next hourly slot." />
     );
   }
 
@@ -81,11 +78,7 @@ export function ActivityFeedPanel({
         ) : (
           <EmptyState
             title={hasMoreEvents ? "No steps in this batch yet." : "No live activity yet."}
-            description={
-              hasMoreEvents
-                ? "Earlier timeline steps from previous hourly batches are behind Show more."
-                : "Timeline steps appear here after agents complete a cycle in this batch."
-            }
+            description={hasMoreEvents ? "Earlier steps are behind Show more." : "Steps appear after agents complete a cycle."}
           />
         )}
 

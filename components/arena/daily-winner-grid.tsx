@@ -47,7 +47,6 @@ export function DailyWinnerGrid({ winners }: { winners: readonly DailyWinnerEntr
                   <p className="text-[11px] font-medium tracking-[0.12em] text-white/40 uppercase">
                     {formatDayLabel(winner.dayKey)}
                   </p>
-                  <p className="mt-1 text-[13px] text-white/35">{winner.dayKey} UTC</p>
                 </div>
                 <CrownGlyph className="shrink-0 opacity-90" />
               </div>

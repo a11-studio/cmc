@@ -60,10 +60,10 @@ function FearGreedCard({ value, label }: { value?: number; label?: string }) {
   return (
     <DashboardCard>
       <DashboardCardTitle>Fear & Greed</DashboardCardTitle>
-      <DashboardCardSubtitle>CMC Crypto Fear and Greed Index</DashboardCardSubtitle>
+      <DashboardCardSubtitle>Market sentiment index</DashboardCardSubtitle>
 
       {value == null ? (
-        <p className="mt-10 text-sm text-white/40">Fear and Greed is not in this CoinMarketCap snapshot.</p>
+        <p className="mt-10 text-sm text-white/40">Fear and Greed is not in this snapshot.</p>
       ) : (
         <div className="mx-auto mt-6 w-full max-w-[240px] flex-1">
           <ConfidenceGauge value={value} label="index" className="mx-auto max-w-[240px]" />
@@ -94,7 +94,7 @@ function OpenInterestCard({
       <MetricHero value={value} prior={prior} />
       <CompositionBar slices={slices} />
       <p className="mt-auto pt-8 text-[12px] text-white/40">
-        {venueCount != null ? `${venueCount} CMC derivatives venues` : "Venue count unavailable"}
+        {venueCount != null ? `${venueCount} derivatives venues` : "Venue count unavailable"}
       </p>
     </DashboardCard>
   );

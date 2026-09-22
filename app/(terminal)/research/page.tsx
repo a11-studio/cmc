@@ -11,7 +11,6 @@ import type { AssetSnapshot, MarketSnapshot } from "@/lib/market/types";
 import type { SupportedSymbol } from "@/lib/market/types";
 import { lookupPriorMarketMetric, lookupPriorQuote, rememberSnapshot, type PriorMarketMetric, type PriorQuote } from "@/lib/market/quote-history";
 import { getMomentumAlphaStore } from "@/lib/agent/runtime";
-import { CmcResearchApiCallout } from "@/components/marketing/cmc-research-api-callout";
 import { BtcLiquidationSignalCard } from "@/components/research/btc-liquidation-signal-card";
 import { ResearchMarketCards } from "@/components/research/research-metrics";
 import { hasServerEnv } from "@/lib/env.server";
@@ -58,17 +57,10 @@ export default async function ResearchPage({
   if (!snapshot || errorMessage) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          kicker="Research"
-          title="Quotes"
-          description="Live market data from CoinMarketCap."
-        />
+        <PageHeader kicker="Research" title="Quotes" />
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-negative">{errorMessage ?? "Market data is unavailable."}</p>
-            <p className="mt-2 text-xs text-faint">
-              Sample prices are not substituted when CoinMarketCap is unavailable.
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -132,15 +124,10 @@ function ResearchView({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        kicker="Research"
-        title="Quotes"
-        description="Live CoinMarketCap quotes. 1h uses the last stored snapshot around one hour ago — not the native CMC 1h field."
-      />
+      <PageHeader kicker="Research" title="Quotes" />
 
       <ResearchMarketCards market={snapshot.market} priors={marketPriors} />
 
-      <CmcResearchApiCallout />
       <BtcLiquidationSignalCard summary={liquidationSummary} spotPrice={spotPrice} />
 
       {hasMarket ? (
@@ -180,9 +167,6 @@ function ResearchView({
         ))}
       </div>
 
-      <p className="text-xs text-faint">
-        Snapshot {snapshot.timestamp} · cycle {snapshot.cycleId}
-      </p>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { DataSourceBadge } from "@/components/shared/data-source-badge";
 import { AssetTicker } from "@/components/market/asset-icon";
 import { formatUsd } from "@/lib/format";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -25,10 +24,7 @@ function statusLabel(cycle: SerializedCycle): string {
 export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
   if (cycles.length === 0) {
     return (
-      <EmptyState
-        title="No cycles yet."
-        description="Run Cycle or wait for the next hourly slot. Duplicate slots are skipped."
-      />
+      <EmptyState title="No cycles yet." description="Run a cycle or wait for the next hourly slot." />
     );
   }
 
@@ -38,9 +34,8 @@ export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
         <li key={cycle.cycleId} className="px-4 py-4 sm:px-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <DataSourceBadge source="live" />
               <span className="text-sm font-medium text-foreground">{cycle.strategy}</span>
-              <span className="text-xs tabular-nums text-tertiary">{cycle.cycleId}</span>
+              <span className="text-xs tabular-nums text-white/35">{cycle.cycleId}</span>
             </div>
             <span
               className={cn(
@@ -55,9 +50,9 @@ export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
               {statusLabel(cycle)}
             </span>
           </div>
-          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <dt className="text-xs text-tertiary">Timestamp</dt>
+              <dt className="text-xs text-tertiary">Time</dt>
               <dd className="tabular-nums text-foreground">{cycle.snapshotTimestamp ?? cycle.startedAt}</dd>
             </div>
             <div>
@@ -81,19 +76,7 @@ export function CycleResultList({ cycles }: { cycles: SerializedCycle[] }) {
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-tertiary">Risk</dt>
-              <dd className="text-foreground">
-                {cycle.riskVerdict
-                  ? `${cycle.riskVerdict}${
-                      cycle.riskVerdict === "CONSTRAINED" && cycle.allowedAllocationPercent != null
-                        ? ` · allowed ${cycle.allowedAllocationPercent}%`
-                        : ""
-                    }`
-                  : cycle.failure?.message ?? "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-tertiary">Execution / equity</dt>
+              <dt className="text-xs text-tertiary">Execution</dt>
               <dd className="text-foreground">
                 {cycle.status === "BLOCKED"
                   ? "Blocked"

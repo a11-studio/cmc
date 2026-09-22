@@ -62,14 +62,13 @@ export function BtcLiquidationSignalCard({
             Liquidation signal
           </DashboardCardTitle>
           <DashboardCardSubtitle>
-            CoinMarketCap BTC long vs short liquidations — coarse bias plus{" "}
-            {formatUsd(BTC_LIQUIDATION_MAGNET_OFFSET_USD, true)} magnet bands around spot.
+            Long vs short liquidations and {formatUsd(BTC_LIQUIDATION_MAGNET_OFFSET_USD, true)} magnet bands around spot.
           </DashboardCardSubtitle>
         </div>
       </div>
 
       {!summary || !tone ? (
-        <p className="mt-8 text-sm text-white/40">BTC liquidation signal is not available from CoinMarketCap right now.</p>
+        <p className="mt-8 text-sm text-white/40">Liquidation signal is unavailable right now.</p>
       ) : (
         <div className="mt-6 space-y-5">
           <div className="flex flex-wrap items-center gap-3">
