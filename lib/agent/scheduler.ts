@@ -80,6 +80,18 @@ export function shouldTriggerAutoCycle(input: {
   );
 }
 
+/** Faster /api/shell polling around the UTC hourly slot (production cron). */
+export function shouldPollArenaShellForCycle(
+  now: Date,
+  intervalMs = AGENT_CYCLE_INTERVAL_MS
+): boolean {
+  const msIntoSlot = now.getTime() % intervalMs;
+  const tenMinutes = 10 * 60 * 1000;
+  const threeMinutes = 3 * 60 * 1000;
+
+  return msIntoSlot < tenMinutes || intervalMs - msIntoSlot <= threeMinutes;
+}
+
 export function formatCycleCountdown(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);

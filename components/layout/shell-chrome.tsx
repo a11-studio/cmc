@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/top-bar";
 import { ARENA_LIVE_REFRESH_EVENT } from "@/lib/arena/live-events";
+import { shouldPollArenaShellForCycle } from "@/lib/agent/scheduler";
 import type { MarketTickerQuote } from "@/types/arena";
 
 const PLACEHOLDER_NOW = "2026-01-01T00:00:00.000Z";
@@ -13,6 +14,7 @@ type ShellPayload = {
   serverNow: string;
   autoRunCycle?: boolean;
   tradingPaused?: boolean;
+  cycleInProgress?: boolean;
 };
 
 export function ShellChrome({ showDebugControls = false }: { showDebugControls?: boolean }) {
@@ -42,6 +44,16 @@ export function ShellChrome({ showDebugControls = false }: { showDebugControls?:
     return () => window.removeEventListener(ARENA_LIVE_REFRESH_EVENT, onRefresh);
   }, [load]);
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (payload?.cycleInProgress || shouldPollArenaShellForCycle(new Date())) {
+        void load();
+      }
+    }, 2000);
+
+    return () => window.clearInterval(id);
+  }, [load, payload?.cycleInProgress]);
+
   return (
     <TopBar
       quotes={payload?.quotes ?? []}
@@ -49,6 +61,7 @@ export function ShellChrome({ showDebugControls = false }: { showDebugControls?:
       serverNow={payload?.serverNow ?? PLACEHOLDER_NOW}
       autoRunCycle={payload?.autoRunCycle}
       tradingPaused={payload?.tradingPaused}
+      cycleInProgress={payload?.cycleInProgress}
       showDebugControls={showDebugControls}
     />
   );

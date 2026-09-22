@@ -7,6 +7,7 @@ import {
   latestCycleCompletedAt,
   msUntilNextCycle,
   nextCycleAt,
+  shouldPollArenaShellForCycle,
   shouldTriggerAutoCycle,
 } from "@/lib/agent/scheduler";
 
@@ -35,6 +36,14 @@ describe("Momentum Alpha scheduler", () => {
     expect(msUntilNextCycle(now)).toBe(53 * 60 * 1000 + 42 * 1000);
     expect(formatCycleCountdown(msUntilNextCycle(now))).toBe("53:42");
     expect(formatCycleCountdown(msUntilNextCycle(new Date("2026-09-17T11:00:00.000Z")))).toBe("60:00");
+  });
+
+  it("polls shell near the UTC hourly boundary and during the first minutes of the slot", () => {
+    expect(shouldPollArenaShellForCycle(new Date("2026-09-17T11:00:00.000Z"))).toBe(true);
+    expect(shouldPollArenaShellForCycle(new Date("2026-09-17T11:09:59.000Z"))).toBe(true);
+    expect(shouldPollArenaShellForCycle(new Date("2026-09-17T11:10:00.000Z"))).toBe(false);
+    expect(shouldPollArenaShellForCycle(new Date("2026-09-17T11:57:00.000Z"))).toBe(true);
+    expect(shouldPollArenaShellForCycle(new Date("2026-09-17T11:30:00.000Z"))).toBe(false);
   });
 
   it("keeps the countdown on the hourly slot even after a cycle completes", () => {

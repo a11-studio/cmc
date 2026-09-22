@@ -20,6 +20,8 @@ export type ArenaCycleControl = {
   lastCompletedAt: string | null;
   autoRun: boolean;
   paused: boolean;
+  /** True when any live agent has a CLAIMED row (hourly GitHub/cron run in flight). */
+  cycleInProgress: boolean;
 };
 
 type AgentStatusRow = { id: string; status: string | null };
@@ -38,6 +40,7 @@ function controlFromMemory(): ArenaCycleControl {
     lastCompletedAt: null,
     autoRun: listLiveAgents().some((agent) => agent.status === "LIVE"),
     paused: false,
+    cycleInProgress: false,
   };
 }
 
@@ -46,7 +49,7 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
   const agentIds = liveAgents.map((agent) => agent.id);
 
   if (agentIds.length === 0) {
-    return { lastCompletedAt: null, autoRun: false, paused: true };
+    return { lastCompletedAt: null, autoRun: false, paused: true, cycleInProgress: false };
   }
 
   const client = createSupabaseAdminClient();
@@ -55,7 +58,7 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
     return controlFromMemory();
   }
 
-  const [statusResult, cyclesResult] = await Promise.all([
+  const [statusResult, cyclesResult, claimedResult] = await Promise.all([
     client.from("agents").select("id, status").in("id", agentIds),
     client
       .from("agent_cycles")
@@ -65,6 +68,11 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
       .neq("status", "CLAIMED")
       .order("completed_at", { ascending: false })
       .limit(agentIds.length * 4),
+    client
+      .from("agent_cycles")
+      .select("agent_id", { count: "exact", head: true })
+      .in("agent_id", agentIds)
+      .eq("status", "CLAIMED"),
   ]);
 
   if (statusResult.error) {
@@ -73,6 +81,10 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
 
   if (cyclesResult.error) {
     throw new Error(`cycle control cycles: ${cyclesResult.error.message}`);
+  }
+
+  if (claimedResult.error) {
+    throw new Error(`cycle control claimed: ${claimedResult.error.message}`);
   }
 
   const statuses = (statusResult.data as AgentStatusRow[] | null) ?? [];
@@ -106,7 +118,17 @@ async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> 
     lastCompletedAt: latestCycleCompletedAt(pseudoCycles),
     autoRun: agentStatuses.some((status) => status === "ACTIVE"),
     paused: agentStatuses.length > 0 && agentStatuses.every((status) => status === "PAUSED"),
+    cycleInProgress: (claimedResult.count ?? 0) > 0,
   };
+}
+
+/** Fresh read for /api/shell polling (no TTL cache). */
+export async function getArenaCycleControlStateForShell(): Promise<ArenaCycleControl> {
+  if (!isSupabasePersistenceConfigured()) {
+    return controlFromMemory();
+  }
+
+  return fetchArenaCycleControlFromSupabase();
 }
 
 export async function getArenaCycleControlState(): Promise<ArenaCycleControl> {

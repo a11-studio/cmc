@@ -10,6 +10,7 @@ export function TopBar({
   serverNow,
   autoRunCycle,
   tradingPaused,
+  cycleInProgress,
   showDebugControls,
 }: {
   quotes: MarketTickerQuote[];
@@ -17,6 +18,7 @@ export function TopBar({
   serverNow: string;
   autoRunCycle?: boolean;
   tradingPaused?: boolean;
+  cycleInProgress?: boolean;
   showDebugControls?: boolean;
 }) {
   return (
@@ -39,6 +41,7 @@ export function TopBar({
         serverNow={serverNow}
         autoRun={autoRunCycle}
         paused={tradingPaused}
+        cycleInProgress={cycleInProgress}
       />
     </header>
   );

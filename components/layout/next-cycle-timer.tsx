@@ -48,11 +48,13 @@ export function NextCycleTimer({
   serverNow,
   autoRun = false,
   paused = false,
+  cycleInProgress = false,
 }: {
   lastCompletedAt?: string | null;
   serverNow: string;
   autoRun?: boolean;
   paused?: boolean;
+  cycleInProgress?: boolean;
 }) {
   const router = useRouter();
   const serverSnapshot = Date.parse(serverNow);
@@ -65,6 +67,7 @@ export function NextCycleTimer({
   const wasPending = useRef(false);
   const remainingMs = msUntilNextCycle(new Date(now), lastCompletedAt);
   const deadline = nextCycleAt(new Date(now), lastCompletedAt).getTime();
+  const running = pending || cycleInProgress;
 
   useEffect(() => {
     const previousDeadline = prevDeadline.current;
@@ -104,8 +107,14 @@ export function NextCycleTimer({
 
   return (
     <p className="shrink-0 border-l border-white/8 pl-4 text-xs text-white/45 whitespace-nowrap">
-      {pending ? (
-        "Running cycle…"
+      {running ? (
+        <span className="inline-flex items-center gap-2 text-foreground">
+          <span
+            className="inline-block size-2.5 animate-pulse rounded-full bg-[#8ADF7B]"
+            aria-hidden
+          />
+          Running cycle…
+        </span>
       ) : paused ? (
         "Trading paused"
       ) : (

@@ -60,6 +60,7 @@ export const getArenaCycleControl = cache(async () => {
       lastCompletedAt: null,
       autoRun: false,
       paused: false,
+      cycleInProgress: false,
     };
   }
 });
