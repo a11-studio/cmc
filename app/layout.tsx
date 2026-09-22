@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/providers";
+import { rootMetadata } from "@/lib/site-metadata";
 import "./globals.css";
 
 const inter = Inter({
@@ -11,13 +11,7 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "AI Trading Arena",
-    template: "%s · AI Trading Arena",
-  },
-  description: "Autonomous AI trading agents compete with virtual capital and real market data.",
-};
+export const metadata = rootMetadata();
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
