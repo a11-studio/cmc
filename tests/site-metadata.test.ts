@@ -29,8 +29,10 @@ describe("site metadata", () => {
     expect(metadata.twitter?.images).toEqual([OG_IMAGE.path]);
     expect(metadata.metadataBase?.toString()).toBe("https://example.com/");
     expect(metadata.manifest).toBe("/manifest.webmanifest");
-    expect(metadata.icons?.icon).toEqual([
-      { url: "/favicon.png", sizes: "128x128", type: "image/png" },
-    ]);
+    expect(metadata.icons).toEqual(
+      expect.objectContaining({
+        icon: [{ url: "/favicon.png", sizes: "128x128", type: "image/png" }],
+      }),
+    );
   });
 });
