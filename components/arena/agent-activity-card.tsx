@@ -3,7 +3,7 @@ import { DashboardCard, DashboardCardSubtitle, DashboardCardTitle } from "@/comp
 import { latestFillBatch } from "@/lib/arena/activity-fills";
 import type { MomentumAlphaView } from "@/lib/agent/view";
 
-function recentFills(books: MomentumAlphaView[], limit = 32): ActivityFill[] {
+function recentFillsFromBooks(books: MomentumAlphaView[], limit = 32): ActivityFill[] {
   return books
     .flatMap((book) =>
       book.trades.map((trade) => ({
@@ -17,8 +17,12 @@ function recentFills(books: MomentumAlphaView[], limit = 32): ActivityFill[] {
     .slice(0, limit);
 }
 
-export function AgentActivityCard({ books }: { books: MomentumAlphaView[] }) {
-  const { latest, older } = latestFillBatch(recentFills(books));
+export function AgentActivityCard(
+  props: { books: MomentumAlphaView[] } | { recentFills: ActivityFill[] }
+) {
+  const fills =
+    "recentFills" in props ? props.recentFills : recentFillsFromBooks(props.books);
+  const { latest, older } = latestFillBatch(fills);
 
   return (
     <DashboardCard>

@@ -1,20 +1,29 @@
 import { DashboardCard, DashboardCardTitle } from "@/components/arena/dashboard-card";
 import { formatPercent, formatUsd } from "@/lib/format";
 import { DEFAULT_RISK_CONSTRAINTS } from "@/lib/risk/constraints";
-import type { MomentumAlphaView } from "@/lib/agent/view";
+import type { PositionRow } from "@/types/arena";
 
-export function RiskOverviewCard({ live }: { live: MomentumAlphaView }) {
-  const equity = live.agent.equity;
-  const capitalDeployed = live.positions.reduce((sum, position) => sum + Math.abs(position.marketValue), 0);
+export function RiskOverviewCard({
+  equity,
+  dayStartEquity,
+  drawdownPercent,
+  positions,
+}: {
+  equity: number;
+  dayStartEquity: number;
+  drawdownPercent: number;
+  positions: readonly PositionRow[];
+}) {
+  const capitalDeployed = positions.reduce((sum, position) => sum + Math.abs(position.marketValue), 0);
   const deployablePercent = 100 - DEFAULT_RISK_CONSTRAINTS.minCashPercent;
   const deployedPercent = equity > 0 ? (capitalDeployed / equity) * 100 : 0;
   const riskCapacityUsed = deployablePercent > 0 ? (deployedPercent / deployablePercent) * 100 : 0;
-  const largestPosition = live.positions.reduce(
+  const largestPosition = positions.reduce(
     (max, position) => Math.max(max, Math.abs(position.allocationPercent)),
     0
   );
   const dailyLossPercent =
-    live.dayStartEquity > 0 ? Math.max(0, ((live.dayStartEquity - equity) / live.dayStartEquity) * 100) : 0;
+    dayStartEquity > 0 ? Math.max(0, ((dayStartEquity - equity) / dayStartEquity) * 100) : 0;
 
   return (
     <DashboardCard>
@@ -56,8 +65,8 @@ export function RiskOverviewCard({ live }: { live: MomentumAlphaView }) {
         <div>
           <dt className="text-[12px] text-white/45">Drawdown</dt>
           <dd className="mt-1 text-[18px] font-medium tabular-nums">
-            {live.agent.drawdownPercent > 0 ? (
-              <span className="text-[#F87171]">-{live.agent.drawdownPercent.toFixed(1)}%</span>
+            {drawdownPercent > 0 ? (
+              <span className="text-[#F87171]">-{drawdownPercent.toFixed(1)}%</span>
             ) : (
               <span className="text-white/40">—</span>
             )}

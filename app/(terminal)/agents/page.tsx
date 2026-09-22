@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { AgentAvatar } from "@/components/agents/agent-avatar";
 import { PageHeader } from "@/components/shared/page-header";
-import { getArenaDashboard } from "@/lib/arena/data";
+import { resolveArenaHomeData } from "@/lib/arena/arena-page-data";
+import { dashboardLiteRoster } from "@/lib/arena/dashboard-lite-build";
 import { cn } from "@/lib/utils";
 import { pageMetadataFromKey } from "@/lib/site-metadata";
 
@@ -10,7 +11,9 @@ export const dynamic = "force-dynamic";
 export const metadata = pageMetadataFromKey("agents");
 
 export default async function AgentsPage() {
-  const { roster } = await getArenaDashboard();
+  const home = await resolveArenaHomeData();
+  const roster =
+    home.mode === "lite" ? dashboardLiteRoster(home.lite.agents) : home.legacy.roster;
 
   return (
     <div className="space-y-6">

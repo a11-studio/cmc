@@ -37,3 +37,9 @@ export type PersistenceMode = "memory" | "supabase";
 export function getPersistenceMode(): PersistenceMode {
   return isSupabasePersistenceConfigured() ? "supabase" : "memory";
 }
+
+export function isArenaDashboardLiteEnabled(
+  env: Record<string, string | undefined> = process.env as Record<string, string | undefined>
+): boolean {
+  return env.ARENA_DASHBOARD_LITE === "true";
+}

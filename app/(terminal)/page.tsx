@@ -1,6 +1,5 @@
 import { ArenaDashboard } from "@/components/arena/arena-dashboard";
-import { CmcIntelligenceStrip } from "@/components/marketing/cmc-intelligence-strip";
-import { getArenaDashboard } from "@/lib/arena/data";
+import { resolveArenaHomeData } from "@/lib/arena/arena-page-data";
 import { pageMetadataFromKey } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
@@ -8,19 +7,23 @@ export const dynamic = "force-dynamic";
 export const metadata = pageMetadataFromKey("home");
 
 export default async function ArenaPage() {
-  const dashboard = await getArenaDashboard();
+  const home = await resolveArenaHomeData();
 
   return (
-    <div className="space-y-3">
-      <CmcIntelligenceStrip />
-      <ArenaDashboard
-      books={dashboard.books}
-      roster={dashboard.roster}
-      live={dashboard.live}
-      summary={dashboard.summary}
-      persistenceMode={dashboard.persistenceMode}
-      paused={dashboard.paused}
-      />
+    <div>
+      {home.mode === "lite" ? (
+        <ArenaDashboard mode="lite" lite={home.lite} />
+      ) : (
+        <ArenaDashboard
+          mode="legacy"
+          books={home.legacy.books}
+          roster={home.legacy.roster}
+          live={home.legacy.live}
+          summary={home.legacy.summary}
+          persistenceMode={home.legacy.persistenceMode}
+          paused={home.legacy.paused}
+        />
+      )}
     </div>
   );
 }
