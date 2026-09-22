@@ -101,3 +101,25 @@ export async function loadPaperAccountForExecution(
     initialCapital: dashboard.initialCapital || initialCapitalFor(agentId, MOMENTUM_ALPHA_AGENT.initialCapital),
   };
 }
+
+/** If the in-memory account lost positions, keep the normalized table rows from wiping on persist. */
+export async function mergeOpenPositionsFromDatabase(
+  client: SupabaseClient,
+  agentId: string,
+  account: PaperAccount
+): Promise<PaperAccount> {
+  if (account.positions.length > 0) {
+    return account;
+  }
+
+  const { positions } = await loadTradesAndPositions(client, agentId);
+
+  if (positions.length === 0) {
+    return account;
+  }
+
+  return {
+    ...account,
+    positions,
+  };
+}

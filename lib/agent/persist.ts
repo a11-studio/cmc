@@ -2,7 +2,7 @@ import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import { freezeMarketSnapshot } from "@/lib/agent/snapshot";
 import { createInMemoryAgentStore } from "@/lib/agent/store";
 import type { AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
-import { cycleToActivityEvents } from "@/lib/agent/view";
+import { cycleToActivityEvents, resolveValuation } from "@/lib/agent/view";
 import { findAgentDefinition } from "@/lib/agents/registry";
 import { createPaperAccount } from "@/lib/paper/portfolio";
 import type { PaperAccount, Trade } from "@/lib/paper/types";
@@ -329,14 +329,14 @@ export function snapshotPersistedState(
     const revived = reviveCycle(cycle);
     return revived ? [revived] : [];
   });
-  const lastEquity = store.getLastEquity();
+  const marked = resolveValuation(account, cycles);
 
   return {
     agentId,
     account,
     status: store.getAgentStatus(),
     dayStartEquity: store.getDayStartEquity(now),
-    lastEquity,
+    lastEquity: marked.portfolio.equity,
     dayKey: utcDayKey(now),
     cycles,
   };
@@ -395,7 +395,7 @@ export type ArenaWriteRows = {
 
 export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): ArenaWriteRows {
   const latest = state.cycles.at(-1);
-  const valuation = latest?.valuation;
+  const valuation = resolveValuation(state.account, state.cycles);
   const identity = persistedAgentIdentity(state.agentId);
 
   return {
@@ -409,7 +409,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
       risk_profile: identity.riskProfile,
       account_payload: wrapAccountPayload(slimAccountForStorage(state.account), state.dayKey),
       day_start_equity: state.dayStartEquity,
-      last_equity: state.lastEquity,
+      last_equity: valuation.portfolio.equity,
       day_key: state.dayKey,
       updated_at: now.toISOString(),
     },
@@ -486,7 +486,7 @@ export function toArenaWriteRows(state: PersistedArenaState, now = new Date()): 
       average_entry_price: position.averageEntryPrice,
     })),
     portfolio:
-      valuation && latest
+      latest
         ? {
             agent_id: identity.id,
             cycle_id: latest.cycleId,

@@ -62,7 +62,13 @@ function safeValuation(account: PaperAccount, snapshot: MarketSnapshot | null): 
   }
 
   try {
-    return markToMarket(account, snapshot);
+    const valued = markToMarket(account, snapshot);
+
+    if (account.positions.length > 0 && valued.positions.length === 0) {
+      return null;
+    }
+
+    return valued;
   } catch {
     return null;
   }

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { runAgentCycle } from "@/lib/agent/cycle";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import { createInMemoryAgentStore } from "@/lib/agent/store";
-import type { AgentCycleDependencies } from "@/lib/agent/types";
+import type { AgentCycleDependencies, AgentCycleResult } from "@/lib/agent/types";
 import {
   buildMomentumAlphaView,
   cycleToActivityEvents,
@@ -11,6 +11,7 @@ import {
   isManualCycleEnabled,
   serializeCycle,
   serializeMomentumAlphaApi,
+  resolveValuation,
   serializeTriggerResult,
 } from "@/lib/agent/view";
 import { AiDecisionError } from "@/lib/ai/errors";
@@ -206,6 +207,74 @@ describe("Momentum Alpha view serialization", () => {
     expect(isArenaDebugControlsEnabled({ NODE_ENV: "development" })).toBe(true);
     expect(isArenaDebugControlsEnabled({ NODE_ENV: "test" })).toBe(true);
     expect(isArenaDebugControlsEnabled({ NODE_ENV: "production" })).toBe(false);
+  });
+
+  it("ignores blocked-cycle valuations when marking the portfolio to market", () => {
+    const account = {
+      initialCapital: 10_000,
+      cash: 0.46,
+      peakEquity: 10_900,
+      realizedPnl: 2,
+      positions: [{ symbol: "BTC" as const, quantity: 0.1, averageEntryPrice: 80_000 }],
+      trades: [],
+    };
+
+    const cycles = [
+      {
+        status: "COMPLETED" as const,
+        valuation: {
+          portfolio: {
+            cash: 0.46,
+            equity: 10_918,
+            realizedPnl: 2,
+            unrealizedPnl: 100,
+            returnPercent: 9,
+            drawdownPercent: 0,
+          },
+          positions: [
+            {
+              symbol: "BTC" as const,
+              quantity: 0.1,
+              averageEntryPrice: 80_000,
+              marketValue: 9_000,
+              unrealizedPnl: 100,
+              allocationPercent: 82,
+            },
+          ],
+        },
+        snapshot: {
+          cycleId: "richard-donchian-1",
+          timestamp: "2026-09-22T00:00:00.000Z",
+          assets: [{ symbol: "BTC" as const, price: 90_000 }],
+          market: {},
+        },
+      },
+      {
+        status: "BLOCKED" as const,
+        valuation: {
+          portfolio: {
+            cash: 0.46,
+            equity: 0.46,
+            realizedPnl: 2,
+            unrealizedPnl: 0,
+            returnPercent: -99.99,
+            drawdownPercent: 99,
+          },
+          positions: [],
+        },
+        snapshot: {
+          cycleId: "richard-donchian-2",
+          timestamp: "2026-09-22T01:00:00.000Z",
+          assets: [{ symbol: "BTC" as const, price: 90_000 }],
+          market: {},
+        },
+      },
+    ];
+
+    const marked = resolveValuation(account, cycles as AgentCycleResult[]);
+
+    expect(marked.portfolio.equity).toBeGreaterThan(1_000);
+    expect(marked.positions).toHaveLength(1);
   });
 
   it("manual trigger serialization uses the cycle result, not a second engine", async () => {

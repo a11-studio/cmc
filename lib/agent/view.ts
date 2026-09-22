@@ -98,13 +98,21 @@ function winRatePercent(trades: readonly Trade[]): number {
   return (wins.length / closed.length) * 100;
 }
 
+function cycleValuationIsAuthoritative(cycle: AgentCycleResult): boolean {
+  return cycle.status === "COMPLETED";
+}
+
 export function resolveValuation(account: PaperAccount, cycles: readonly AgentCycleResult[]): PaperValuation {
   for (let index = cycles.length - 1; index >= 0; index -= 1) {
     const cycle = cycles[index];
 
-    if (cycle?.valuation) {
+    if (cycle?.valuation && cycleValuationIsAuthoritative(cycle)) {
       return cycle.valuation;
     }
+  }
+
+  for (let index = cycles.length - 1; index >= 0; index -= 1) {
+    const cycle = cycles[index];
 
     if (cycle?.snapshot) {
       try {
