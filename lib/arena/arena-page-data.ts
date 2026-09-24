@@ -20,7 +20,11 @@ export async function resolveArenaHomeData(): Promise<ArenaHomeData> {
   }
 
   if (isSupabasePersistenceConfigured()) {
-    return { mode: "lite", lite: await fetchDashboardLite() };
+    try {
+      return { mode: "lite", lite: await fetchDashboardLite() };
+    } catch (error) {
+      console.error("fetchDashboardLite failed; falling back to legacy hydrate", error);
+    }
   }
 
   const legacy = await getArenaDashboard();

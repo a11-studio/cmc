@@ -46,6 +46,15 @@ function controlFromMemory(): ArenaCycleControl {
 }
 
 async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> {
+  try {
+    return await fetchArenaCycleControlFromSupabaseUncached();
+  } catch (error) {
+    console.error("cycle-control supabase read failed", error);
+    return controlFromMemory();
+  }
+}
+
+async function fetchArenaCycleControlFromSupabaseUncached(): Promise<ArenaCycleControl> {
   const liveAgents = listLiveAgents();
   const agentIds = liveAgents.map((agent) => agent.id);
 

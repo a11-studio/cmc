@@ -26,11 +26,15 @@ export function getServerSecretStatus(): Record<ServerEnvKey, boolean> {
 
 /** Legacy JWT `service_role` or new dashboard **Secret** key (`sb_secret_…`). */
 export function getSupabaseServiceRoleKey(): string {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_SECRET_KEY ??
-    ""
-  ).trim();
+  const secret = process.env.SUPABASE_SECRET_KEY?.trim() ?? "";
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+
+  // During project migration, Vercel often still has the old JWT in SERVICE_ROLE_KEY.
+  if (secret) {
+    return secret;
+  }
+
+  return serviceRole;
 }
 
 export function isSupabasePersistenceConfigured(): boolean {

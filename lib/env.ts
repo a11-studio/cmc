@@ -1,10 +1,13 @@
 /** Supabase dashboard may label this anon or publishable — either env name works. */
 function resolveSupabaseBrowserKey(): string {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    ""
-  ).trim();
+  const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
+
+  if (publishable) {
+    return publishable;
+  }
+
+  return anon;
 }
 
 /** Dashboard sometimes copies the REST path; the JS client expects the project origin only. */
