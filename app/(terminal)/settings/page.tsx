@@ -32,7 +32,10 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <EnvRow name="NEXT_PUBLIC_SUPABASE_URL" configured={publicConfigured} />
-            <EnvRow name="NEXT_PUBLIC_SUPABASE_ANON_KEY" configured={publicConfigured} />
+            <EnvRow
+              name="NEXT_PUBLIC_SUPABASE_ANON_KEY (or PUBLISHABLE_KEY)"
+              configured={publicConfigured}
+            />
             <p className="text-xs text-faint">
               Persistence writes use the service role on the server. Realtime uses the public anon key in the browser. Apply `supabase/migrations/20260917120000_arena.sql` in the Supabase SQL editor, then set all three keys. The arena keeps working in memory until then.
             </p>
@@ -47,7 +50,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <EnvRow
-              name="SUPABASE_SERVICE_ROLE_KEY"
+              name="SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY)"
               configured={secrets.SUPABASE_SERVICE_ROLE_KEY}
             />
             <EnvRow name="CMC_API_KEY" configured={secrets.CMC_API_KEY} />

@@ -17,15 +17,20 @@ export function hasServerEnv(key: ServerEnvKey): boolean {
 
 export function getServerSecretStatus(): Record<ServerEnvKey, boolean> {
   return {
-    SUPABASE_SERVICE_ROLE_KEY: hasServerEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    SUPABASE_SERVICE_ROLE_KEY: Boolean(getSupabaseServiceRoleKey()),
     CMC_API_KEY: hasServerEnv("CMC_API_KEY"),
     GEMINI_API_KEY: hasServerEnv("GEMINI_API_KEY"),
     GEMINI_MODEL: hasServerEnv("GEMINI_MODEL"),
   };
 }
 
+/** Legacy JWT `service_role` or new dashboard **Secret** key (`sb_secret_…`). */
 export function getSupabaseServiceRoleKey(): string {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.SUPABASE_SECRET_KEY ??
+    ""
+  ).trim();
 }
 
 export function isSupabasePersistenceConfigured(): boolean {
