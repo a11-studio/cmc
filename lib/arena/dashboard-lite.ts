@@ -1,6 +1,7 @@
 import "server-only";
 
 import { EQUITY_HISTORY_LIMIT } from "@/lib/agent/equity-history";
+import { latestEquityHistoryRows } from "@/lib/agent/equity-history-rows";
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
 import { unwrapAccountPayload } from "@/lib/agent/persist";
 import { reviveCycle } from "@/lib/agent/persist";
@@ -88,14 +89,14 @@ async function fetchEquitySeriesByAgent(
         .from("portfolio_snapshots")
         .select("equity, timestamp, cycle_id")
         .eq("agent_id", agentId)
-        .order("timestamp", { ascending: true })
+        .order("timestamp", { ascending: false })
         .limit(EQUITY_HISTORY_LIMIT);
 
       if (error) {
         throw new Error(`dashboard-lite equity: ${error.message}`);
       }
 
-      const points = (data ?? []).flatMap((row) => {
+      const points = latestEquityHistoryRows(data ?? [], EQUITY_HISTORY_LIMIT).flatMap((row) => {
         if (typeof row.equity !== "number" || typeof row.timestamp !== "string") {
           return [];
         }

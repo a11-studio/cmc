@@ -13,8 +13,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { filterAgentPortfolioEquityHistoryForDisplay } from "@/lib/agent/portfolio-equity-display";
 import type { EquityCurvePoint } from "@/types/arena";
 
+import { latestEquityHistoryRows } from "@/lib/agent/equity-history-rows";
+
 /** Chart history — lightweight rows only (no cycle payloads). */
 export const EQUITY_HISTORY_LIMIT = 120;
+
+export { latestEquityHistoryRows } from "@/lib/agent/equity-history-rows";
 
 function cacheKey(agentId: string): string {
   return ttlCacheKey(["arena", "equity-history", agentId]);
@@ -39,14 +43,14 @@ async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promis
     .from("portfolio_snapshots")
     .select("equity, timestamp, cycle_id")
     .eq("agent_id", agentId)
-    .order("timestamp", { ascending: true })
+    .order("timestamp", { ascending: false })
     .limit(EQUITY_HISTORY_LIMIT);
 
   if (error) {
     throw new Error(`equity history: ${error.message}`);
   }
 
-  const rows = data ?? [];
+  const rows = latestEquityHistoryRows(data ?? [], EQUITY_HISTORY_LIMIT);
 
   logArenaEgress("equity-history", {
     agentId,

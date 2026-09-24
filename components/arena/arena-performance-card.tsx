@@ -3,6 +3,7 @@ import { DashboardCard, DashboardCardSubtitle, DashboardCardTitle } from "@/comp
 import { EquitySparkline } from "@/components/charts/equity-sparkline";
 import { AnimatedSignedUsd } from "@/components/shared/animated-signed-usd";
 import { SignedPercent } from "@/components/shared/signed-value";
+import { equitySeriesWithLiveTail } from "@/lib/charts/equity";
 import { formatUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { EquityCurvePoint } from "@/types/arena";
@@ -27,6 +28,7 @@ export function ArenaPerformanceCard({
   action?: ReactNode;
 }) {
   const down = pnl < 0 || returnPercent < 0;
+  const chartSeries = equitySeriesWithLiveTail(series, currentEquity);
 
   return (
     <DashboardCard tone={down ? "performance-down" : "performance"} className={className}>
@@ -53,8 +55,14 @@ export function ArenaPerformanceCard({
       </p>
 
       <div className="mt-6 h-[165px] shrink-0">
-        {series.length >= 2 ? (
-          <EquitySparkline points={series} variant="hero" className="h-full" />
+        {chartSeries.length >= 2 ? (
+          <EquitySparkline
+            points={chartSeries}
+            variant="hero"
+            className="h-full"
+            referenceEquity={startingCapital}
+            trendPositive={pnl >= 0}
+          />
         ) : (
           <div className="flex h-full items-end">
             <div className={cn("h-px w-full", down ? "bg-[#F87171]/25" : "bg-[#8ADF7B]/25")} />

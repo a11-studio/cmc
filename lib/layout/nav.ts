@@ -41,7 +41,7 @@ const MY_TRADING_NAV = {
   href: "/my-trading",
   label: "My Trading",
   match: "my-trading" as const,
-  iconSrc: "/nav/activity.svg",
+  iconSrc: "/nav/user.svg",
 };
 
 export type PrimaryNavItem =

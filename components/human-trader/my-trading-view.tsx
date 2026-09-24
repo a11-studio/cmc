@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DashboardCard, DashboardCardSubtitle, DashboardCardTitle } from "@/components/arena/dashboard-card";
 import { EquitySparkline } from "@/components/charts/equity-sparkline";
 import { SignedPercent, SignedUsd } from "@/components/shared/signed-value";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/human-trader/client-storage";
 import { buildHumanVsAiLeaderboard, humanRankInLeaderboard } from "@/lib/human-trader/leaderboard";
 import { accountAfterTrade, resetHumanTraderState } from "@/lib/human-trader/storage";
+import { equitySeriesWithLiveTail } from "@/lib/charts/equity";
 import {
   estimateHumanTradeQuantity,
   executeHumanNotionalTrade,
@@ -48,20 +49,42 @@ export function MyTradingView({
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [tradeDraft, setTradeDraft] = useState<TradeDraft | null>(null);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [marketFeedWarning, setMarketFeedWarning] = useState<string | null>(null);
+  const stateRef = useRef<HumanTraderPersistedState | null>(null);
 
   useEffect(() => {
     setState(loadHumanTraderStateFromBrowser());
   }, []);
 
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const refreshSnapshot = useCallback(async () => {
     const response = await fetch("/api/human-trader/snapshot", { cache: "no-store" });
 
     if (!response.ok) {
+      setMarketFeedWarning("Market feed refresh failed — still using the last good quotes.");
       return;
     }
 
     const body = (await response.json()) as { snapshot: MarketSnapshot };
-    setSnapshot(body.snapshot);
+    const next = body.snapshot;
+    const account = stateRef.current?.account;
+
+    if (account) {
+      try {
+        markToMarket(account, next);
+      } catch {
+        setMarketFeedWarning(
+          "Live quotes are incomplete — portfolio still priced from the last good snapshot."
+        );
+        return;
+      }
+    }
+
+    setSnapshot(next);
+    setMarketFeedWarning(null);
   }, []);
 
   useEffect(() => {
@@ -98,6 +121,14 @@ export function MyTradingView({
   const rank = humanRankInLeaderboard(leaderboard);
   const invested =
     valuation == null ? 0 : valuation.portfolio.equity - valuation.portfolio.cash;
+
+  const equityChartPoints = useMemo(() => {
+    if (!state || !valuation) {
+      return [];
+    }
+
+    return equitySeriesWithLiveTail(state.equityHistory, valuation.portfolio.equity);
+  }, [state, valuation]);
 
   function persist(next: HumanTraderPersistedState) {
     setState(next);
@@ -147,8 +178,42 @@ export function MyTradingView({
     setTradeError(null);
   }
 
-  if (!state || !valuation) {
-    return null;
+  if (!state) {
+    return (
+      <div className="space-y-3">
+        <PageHeader kicker="Debug" title="My Trading" description="Loading your local paper account…" />
+      </div>
+    );
+  }
+
+  if (!valuation) {
+    return (
+      <div className="space-y-3">
+        <PageHeader
+          kicker="Debug"
+          title="My Trading"
+          description="Local paper account — compete with the Arena agents. Not persisted to Supabase."
+          actions={
+            <Button type="button" variant="outline" size="sm" onClick={handleReset}>
+              Reset account
+            </Button>
+          }
+        />
+        <DashboardCard>
+          <DashboardCardTitle>Market feed unavailable</DashboardCardTitle>
+          <DashboardCardSubtitle>
+            We could not price your book with the current quotes. Your trades are still in this
+            browser ({state.account.trades.length} recorded).
+          </DashboardCardSubtitle>
+          <p className="mt-4 text-sm text-white/55">
+            Refresh when CoinMarketCap quotes are back, or reset if you want a clean $10k book.
+          </p>
+          <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => void refreshSnapshot()}>
+            Retry market feed
+          </Button>
+        </DashboardCard>
+      </div>
+    );
   }
 
   const { portfolio, positions } = valuation;
@@ -172,6 +237,12 @@ export function MyTradingView({
         }
       />
 
+      {marketFeedWarning ? (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/90">
+          {marketFeedWarning}
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
         <DashboardCard className="xl:col-span-2" tone={pnl >= 0 ? "performance" : "performance-down"}>
           <DashboardCardTitle>Your book</DashboardCardTitle>
@@ -190,9 +261,9 @@ export function MyTradingView({
             <Metric label="Rank vs AI" value={rank == null ? "—" : `#${rank}`} />
           </div>
           <div className="mt-6 h-[165px]">
-            {state.equityHistory.length >= 2 ? (
+            {equityChartPoints.length >= 2 ? (
               <EquitySparkline
-                points={state.equityHistory}
+                points={equityChartPoints}
                 variant="hero"
                 className="h-full"
                 referenceEquity={state.account.initialCapital}

@@ -45,6 +45,65 @@ export function equityChange(current: number, baseline: number) {
   return { amount, percent };
 }
 
+const LIVE_TAIL_STALE_MS = 2 * 60 * 60 * 1000;
+const LIVE_TAIL_BRIDGE_STEP_MS = 60 * 60 * 1000;
+const LIVE_TAIL_MAX_BRIDGE_STEPS = 12;
+
+/**
+ * Chart read model: align the curve end with headline equity.
+ * Sparklines plot by point index (not wall-clock time), so a lone "Live" point after a
+ * stale snapshot creates a vertical cliff — we bridge with interpolated points when needed.
+ */
+export function equitySeriesWithLiveTail(
+  history: readonly EquityChartPoint[],
+  liveEquity: number,
+  at = new Date().toISOString()
+): EquityChartPoint[] {
+  if (history.length === 0) {
+    return [];
+  }
+
+  const last = history.at(-1)!;
+
+  if (last.label === "Live") {
+    return [...history.slice(0, -1), { equity: liveEquity, at, label: "Live" }];
+  }
+
+  if (Math.abs(last.equity - liveEquity) < 0.005) {
+    return [...history];
+  }
+
+  const liveAt = Date.parse(at);
+  const lastAt = last.at ? Date.parse(last.at) : Number.NaN;
+  const gapMs =
+    Number.isFinite(lastAt) && Number.isFinite(liveAt) ? Math.max(0, liveAt - lastAt) : 0;
+
+  if (gapMs <= LIVE_TAIL_STALE_MS) {
+    const head = history.slice(0, -1);
+    return [...head, { equity: liveEquity, at, label: "Live" }];
+  }
+
+  if (!Number.isFinite(lastAt) || gapMs === 0) {
+    return [...history, { equity: liveEquity, at, label: "Live" }];
+  }
+
+  const bridgeCount = Math.min(
+    LIVE_TAIL_MAX_BRIDGE_STEPS,
+    Math.max(2, Math.ceil(gapMs / LIVE_TAIL_BRIDGE_STEP_MS))
+  );
+  const bridge: EquityChartPoint[] = [];
+
+  for (let step = 1; step <= bridgeCount; step++) {
+    const ratio = step / (bridgeCount + 1);
+    bridge.push({
+      equity: last.equity + (liveEquity - last.equity) * ratio,
+      at: new Date(lastAt + gapMs * ratio).toISOString(),
+    });
+  }
+
+  return [...history, ...bridge, { equity: liveEquity, at, label: "Live" }];
+}
+
 export function combineEquitySeries(
   books: readonly { equitySeries: readonly EquityChartPoint[] }[]
 ): EquityChartPoint[] {

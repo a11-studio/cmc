@@ -3,6 +3,7 @@ import {
   combineEquitySeries,
   equityChange,
   equityIndexAtSvgX,
+  equitySeriesWithLiveTail,
   nearestEquityIndex,
   normalizeEquityPoints,
 } from "@/lib/charts/equity";
@@ -33,6 +34,39 @@ describe("equity chart helpers", () => {
   it("computes change versus start", () => {
     expect(equityChange(11_000, 10_000)).toEqual({ amount: 1_000, percent: 10 });
     expect(equityChange(9_500, 10_000)).toEqual({ amount: -500, percent: -5 });
+  });
+
+  it("appends a live tail when headline equity diverges from history", () => {
+    const history = [{ equity: 70_000 }, { equity: 70_500, at: "2026-09-24T16:00:00.000Z" }];
+    const chart = equitySeriesWithLiveTail(history, 72_214.71, "2026-09-24T19:30:00.000Z");
+
+    expect(chart.at(-1)).toMatchObject({ equity: 72_214.71, label: "Live" });
+    expect(chart.length).toBeGreaterThan(2);
+  });
+
+  it("replaces a stale last snapshot within two hours instead of adding a cliff point", () => {
+    const history = [
+      { equity: 70_000 },
+      { equity: 72_000, at: "2026-09-24T16:00:00.000Z" },
+    ];
+    const chart = equitySeriesWithLiveTail(history, 72_214.71, "2026-09-24T17:00:00.000Z");
+
+    expect(chart).toHaveLength(2);
+    expect(chart.at(-1)).toMatchObject({ equity: 72_214.71, label: "Live" });
+  });
+
+  it("bridges a long gap with interpolated points for index-based sparklines", () => {
+    const history = [
+      { equity: 70_000 },
+      { equity: 75_000, at: "2026-09-23T01:22:00.000Z" },
+    ];
+    const chart = equitySeriesWithLiveTail(history, 72_214.71, "2026-09-24T18:00:00.000Z");
+
+    expect(chart.at(-1)).toMatchObject({ equity: 72_214.71, label: "Live" });
+    expect(chart.length).toBeGreaterThan(3);
+    const penultimate = chart.at(-2)!;
+    expect(penultimate.equity).toBeGreaterThan(72_214);
+    expect(penultimate.equity).toBeLessThan(75_000);
   });
 });
 

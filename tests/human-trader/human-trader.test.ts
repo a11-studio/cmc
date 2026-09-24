@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isArenaHumanTraderEnabled } from "@/lib/human-trader/flags";
 import { buildHumanVsAiLeaderboard, humanRankInLeaderboard } from "@/lib/human-trader/leaderboard";
+import { equitySeriesWithLiveTail } from "@/lib/charts/equity";
 import {
   accountAfterTrade,
   createInitialHumanTraderState,
@@ -316,6 +317,23 @@ describe("human trader paper execution", () => {
     );
 
     expect(next.equityHistory).toHaveLength(2);
+  });
+
+  it("extends chart points with a live mark tail without mutating stored history", () => {
+    const history = [
+      { equity: 10_000, at: "2026-09-22T08:00:00.000Z", label: "Start" },
+      { equity: 10_200, at: "2026-09-22T09:00:00.000Z" },
+    ];
+
+    const withMark = equitySeriesWithLiveTail(history, 9_900, "2026-09-22T10:00:00.000Z");
+
+    expect(withMark).toHaveLength(2);
+    expect(withMark.at(-1)).toMatchObject({ equity: 9_900, label: "Live" });
+
+    const updated = equitySeriesWithLiveTail(withMark, 9_850, "2026-09-22T10:30:00.000Z");
+
+    expect(updated).toHaveLength(2);
+    expect(updated.at(-1)?.equity).toBe(9_850);
   });
 });
 
