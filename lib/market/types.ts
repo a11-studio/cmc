@@ -14,8 +14,9 @@ export type NewsSignal = {
 
 export type BtcLiquidationSnapshotRead = {
   signal: "bullish" | "bearish" | "neutral";
+  signalLabel?: string;
   reason: string;
-  basedOn: "1h" | "4h" | "24h";
+  basedOn: "1h" | "4h" | "24h" | "blend";
   updatedAt?: string;
 };
 

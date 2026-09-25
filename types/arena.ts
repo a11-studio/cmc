@@ -1,4 +1,5 @@
 import type { SupportedSymbol } from "@/lib/market/types";
+import type { RiskVerdict } from "@/lib/risk/types";
 
 export type AgentStatus = "ACTIVE" | "PAUSED" | "ERROR";
 export type TradeAction = "BUY" | "SELL" | "HOLD" | "SHORT";
@@ -110,6 +111,9 @@ export type ActivityEvent = {
   title: string;
   description: string;
   createdAt: string;
+  action?: TradeAction;
+  symbol?: SupportedSymbol;
+  riskVerdict?: RiskVerdict;
 };
 
 export type DecisionRecord = {

@@ -226,7 +226,9 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
       agentName,
       type: "DECISION",
       title: "DECISION",
-      description: `${cycle.decision.action} ${cycle.decision.symbol} ${cycle.decision.allocationPercent}% · ${cycle.decision.confidence}% confidence`,
+      action: cycle.decision.action,
+      symbol: cycle.decision.symbol,
+      description: `${cycle.decision.allocationPercent}% · ${cycle.decision.confidence}% confidence`,
       createdAt: cycle.completedAt,
     });
   } else if (cycle.status === "FAILED_DECISION") {
@@ -254,7 +256,8 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
       agentName,
       type: "RISK_CHECK",
       title: "RISK CHECK",
-      description: `${cycle.riskResult.verdict}${allowed} · ${cycle.riskResult.reason}`,
+      riskVerdict: cycle.riskResult.verdict,
+      description: `${cycle.riskResult.reason}${allowed}`,
       createdAt: cycle.completedAt,
     });
   } else if (cycle.status === "FAILED_RISK") {
@@ -277,6 +280,7 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
       agentName,
       type: "TRADE_REJECTED",
       title: "BLOCKED",
+      riskVerdict: "BLOCKED",
       description: cycle.riskResult?.reason ?? "Risk Engine blocked the decision",
       createdAt: cycle.completedAt,
     });
@@ -285,9 +289,15 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
 
   if (cycle.execution?.ok) {
     const equity = cycle.valuation?.portfolio.equity;
-    const fill = cycle.execution.trade
-      ? `${cycle.execution.trade.side} ${cycle.execution.trade.symbol} ${formatUsd(cycle.execution.trade.notional)}`
-      : cycle.execution.action;
+    const trade = cycle.execution.trade;
+    const executionAction =
+      trade?.side ??
+      (cycle.execution.action === "BUY" ||
+      cycle.execution.action === "SELL" ||
+      cycle.execution.action === "SHORT" ||
+      cycle.execution.action === "HOLD"
+        ? cycle.execution.action
+        : undefined);
 
     events.push({
       id: `${cycle.cycleId}-executed`,
@@ -295,7 +305,14 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
       agentName,
       type: "TRADE_EXECUTED",
       title: "TRADE EXECUTED",
-      description: equity == null ? fill : `${fill} · equity ${formatUsd(equity)}`,
+      action: executionAction,
+      symbol: trade?.symbol,
+      description:
+        trade == null
+          ? String(cycle.execution.action)
+          : equity == null
+            ? formatUsd(trade.notional)
+            : `${formatUsd(trade.notional)} · equity ${formatUsd(equity)}`,
       createdAt: cycle.completedAt,
     });
     return events;

@@ -17,12 +17,158 @@ export type LiquidationWindowStats = {
 
 export type LiquidationSignal = "bullish" | "bearish" | "neutral";
 
+/** How one-sided the anchor window is (long vs short share). */
+export type LiquidationSignalStrength = "slight" | "moderate" | "strong";
+
 export type BtcLiquidationSignalRead = {
   signal: LiquidationSignal;
+  /** UI copy, e.g. "Slightly bearish", "Strongly bullish". */
+  signalLabel: string;
+  strength: LiquidationSignalStrength | null;
   /** One line — why the signal leans that way. */
   reason: string;
-  basedOn: "1h" | "4h" | "24h";
+  /** `blend` = weighted 1h + 4h + 24h (see {@link LIQUIDATION_WINDOW_BLEND_WEIGHTS}). */
+  basedOn: "1h" | "4h" | "24h" | "blend";
 };
+
+/** Recency-weighted blend for the headline badge (sums to 1). */
+export const LIQUIDATION_WINDOW_BLEND_WEIGHTS: Record<LiquidationWindowStats["label"], number> = {
+  "1h": 0.35,
+  "4h": 0.4,
+  "24h": 0.25,
+};
+
+const DOMINANCE_MARGIN_PERCENT = 3;
+const SLIGHT_IMBALANCE_MAX = 12;
+const STRONG_IMBALANCE_MIN = 22;
+
+const WINDOW_ORDER: LiquidationWindowStats["label"][] = ["1h", "4h", "24h"];
+
+function liquidationImbalancePercent(window: LiquidationWindowStats): number {
+  return Math.abs(window.longSharePercent - window.shortSharePercent);
+}
+
+export function liquidationSignalStrength(imbalancePercent: number): LiquidationSignalStrength {
+  if (imbalancePercent <= SLIGHT_IMBALANCE_MAX) {
+    return "slight";
+  }
+
+  if (imbalancePercent >= STRONG_IMBALANCE_MIN) {
+    return "strong";
+  }
+
+  return "moderate";
+}
+
+export function formatLiquidationSignalLabel(
+  signal: LiquidationSignal,
+  strength: LiquidationSignalStrength | null
+): string {
+  if (signal === "neutral") {
+    return "Neutral";
+  }
+
+  const direction = signal === "bullish" ? "bullish" : "bearish";
+  if (strength === "slight") {
+    return `Slightly ${direction}`;
+  }
+
+  if (strength === "strong") {
+    return `Strongly ${direction}`;
+  }
+
+  return direction.charAt(0).toUpperCase() + direction.slice(1);
+}
+
+/** Positive = more long liquidations (bearish); negative = more short liquidations (bullish). */
+export function blendedLiquidationSkew(windows: readonly LiquidationWindowStats[]): number | null {
+  let weightSum = 0;
+  let weightedImbalance = 0;
+
+  for (const window of windows) {
+    const weight = LIQUIDATION_WINDOW_BLEND_WEIGHTS[window.label];
+    if (weight == null) {
+      continue;
+    }
+
+    const imbalance = window.longSharePercent - window.shortSharePercent;
+    weightedImbalance += weight * imbalance;
+    weightSum += weight;
+  }
+
+  if (!(weightSum > 0)) {
+    return null;
+  }
+
+  return weightedImbalance / weightSum;
+}
+
+function windowSkewSnippet(window: LiquidationWindowStats): string {
+  if (window.dominantSide === "long") {
+    return `${window.label} long ${window.longSharePercent.toFixed(0)}%`;
+  }
+
+  if (window.dominantSide === "short") {
+    return `${window.label} short ${window.shortSharePercent.toFixed(0)}%`;
+  }
+
+  return `${window.label} balanced`;
+}
+
+function formatBlendReason(windows: readonly LiquidationWindowStats[], skew: number, signal: LiquidationSignal): string {
+  const ordered = WINDOW_ORDER.map((label) => windows.find((window) => window.label === label)).filter(
+    (window): window is LiquidationWindowStats => window != null
+  );
+  const parts = ordered.map((window) => windowSkewSnippet(window)).join(" · ");
+
+  if (signal === "neutral") {
+    return `${parts} — blended flows are balanced (${skew >= 0 ? "+" : ""}${skew.toFixed(0)} skew).`;
+  }
+
+  const bias =
+    signal === "bearish"
+      ? "long-liquidation bias (downside / flush risk)"
+      : "short-liquidation bias (squeeze / upside risk)";
+
+  return `${parts} — blend leans ${bias} (${skew >= 0 ? "+" : ""}${skew.toFixed(0)} weighted skew).`;
+}
+
+function readFromBlendedWindows(windows: readonly LiquidationWindowStats[]): BtcLiquidationSignalRead {
+  const skew = blendedLiquidationSkew(windows);
+
+  if (skew == null) {
+    return {
+      signal: "neutral",
+      strength: null,
+      signalLabel: formatLiquidationSignalLabel("neutral", null),
+      reason: "No BTC liquidation windows returned.",
+      basedOn: "blend",
+    };
+  }
+
+  const magnitude = Math.abs(skew);
+
+  if (magnitude <= DOMINANCE_MARGIN_PERCENT) {
+    return {
+      signal: "neutral",
+      strength: null,
+      signalLabel: formatLiquidationSignalLabel("neutral", null),
+      reason: formatBlendReason(windows, skew, "neutral"),
+      basedOn: "blend",
+    };
+  }
+
+  const signal: LiquidationSignal = skew > 0 ? "bearish" : "bullish";
+  const strength = liquidationSignalStrength(magnitude);
+
+  return {
+    signal,
+    strength,
+    signalLabel: formatLiquidationSignalLabel(signal, strength),
+    reason: formatBlendReason(windows, skew, signal),
+    basedOn: "blend",
+  };
+}
 
 export type BtcLiquidationSummary = {
   symbol: "BTC";
@@ -64,7 +210,11 @@ function readWindow(
   const longSharePercent = (longUsd / totalUsd) * 100;
   const shortSharePercent = (shortUsd / totalUsd) * 100;
   const dominantSide =
-    longSharePercent > shortSharePercent + 3 ? "long" : shortSharePercent > longSharePercent + 3 ? "short" : "even";
+    longSharePercent > shortSharePercent + DOMINANCE_MARGIN_PERCENT
+      ? "long"
+      : shortSharePercent > longSharePercent + DOMINANCE_MARGIN_PERCENT
+        ? "short"
+        : "even";
 
   return {
     label,
@@ -78,37 +228,17 @@ function readWindow(
 }
 
 export function buildBtcLiquidationSignalRead(windows: readonly LiquidationWindowStats[]): BtcLiquidationSignalRead {
-  const anchor = windows.find((window) => window.label === "4h") ?? windows.find((window) => window.label === "1h");
-
-  if (!anchor) {
+  if (windows.length === 0) {
     return {
       signal: "neutral",
+      strength: null,
+      signalLabel: formatLiquidationSignalLabel("neutral", null),
       reason: "No BTC liquidation windows returned.",
-      basedOn: "4h",
+      basedOn: "blend",
     };
   }
 
-  if (anchor.dominantSide === "short") {
-    return {
-      signal: "bullish",
-      reason: `Shorts took ${anchor.shortSharePercent.toFixed(0)}% of ${anchor.label} liquidations — squeeze / upside bias.`,
-      basedOn: anchor.label,
-    };
-  }
-
-  if (anchor.dominantSide === "long") {
-    return {
-      signal: "bearish",
-      reason: `Longs took ${anchor.longSharePercent.toFixed(0)}% of ${anchor.label} liquidations — flush / downside bias.`,
-      basedOn: anchor.label,
-    };
-  }
-
-  return {
-    signal: "neutral",
-    reason: `Long and short liquidations are balanced over ${anchor.label}.`,
-    basedOn: anchor.label,
-  };
+  return readFromBlendedWindows(windows);
 }
 
 export function normalizeBtcLiquidationSummaryPayload(payload: unknown): BtcLiquidationSummary | null {

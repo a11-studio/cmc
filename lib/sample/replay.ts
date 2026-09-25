@@ -188,7 +188,9 @@ function buildActivity(agent: Pick<LeaderboardAgent, "id" | "name">, step: Sampl
       agentName: agent.name,
       type: "DECISION",
       title: "DECISION",
-      description: `${step.action} ${step.symbol} · ${step.confidence ?? 70}% confidence`,
+      action: step.action,
+      symbol: step.symbol,
+      description: `${step.confidence ?? 70}% confidence`,
       createdAt: offset(3),
     },
     {
@@ -206,7 +208,9 @@ function buildActivity(agent: Pick<LeaderboardAgent, "id" | "name">, step: Sampl
       agentName: agent.name,
       type: "TRADE_EXECUTED",
       title: "TRADE EXECUTED",
-      description: describeTrade(trade),
+      action: trade.side,
+      symbol: trade.symbol,
+      description: `${formatUsd(trade.notional)} @ ${formatUsd(trade.price)}`,
       createdAt: step.at,
     },
   ];

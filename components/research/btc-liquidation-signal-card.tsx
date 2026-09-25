@@ -6,14 +6,35 @@ import {
   buildBtcLiquidationMagnetBands,
   type BtcLiquidationMagnetLevel,
 } from "@/lib/market/btc-liquidation-magnets";
-import type { BtcLiquidationSummary, LiquidationSignal } from "@/lib/market/btc-liquidation-summary";
+import type { BtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary";
+import type { BtcLiquidationSignalRead } from "@/lib/market/btc-liquidation-summary";
 import { cn } from "@/lib/utils";
 
-const SIGNAL_STYLES: Record<LiquidationSignal, { label: string; className: string }> = {
-  bullish: { label: "Bullish", className: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/25" },
-  bearish: { label: "Bearish", className: "bg-rose-500/15 text-rose-300 ring-rose-400/25" },
-  neutral: { label: "Neutral", className: "bg-white/8 text-white/70 ring-white/15" },
-};
+function signalBadgeClass(read: BtcLiquidationSignalRead): string {
+  const { signal, strength } = read;
+
+  if (signal === "neutral") {
+    return "bg-white/8 text-white/70 ring-white/15";
+  }
+
+  if (signal === "bullish") {
+    if (strength === "slight") {
+      return "bg-emerald-500/10 text-emerald-200/90 ring-emerald-400/20";
+    }
+    if (strength === "strong") {
+      return "bg-emerald-500/20 text-emerald-200 ring-emerald-400/35";
+    }
+    return "bg-emerald-500/15 text-emerald-300 ring-emerald-400/25";
+  }
+
+  if (strength === "slight") {
+    return "bg-rose-500/10 text-rose-200/90 ring-rose-400/20";
+  }
+  if (strength === "strong") {
+    return "bg-rose-500/20 text-rose-200 ring-rose-400/35";
+  }
+  return "bg-rose-500/15 text-rose-300 ring-rose-400/25";
+}
 
 function MagnetRow({ label, magnet }: { label: string; magnet: BtcLiquidationMagnetLevel }) {
   const biasLabel = magnet.liquidationBias === "long" ? "long-liq magnet" : "short-liq magnet";
@@ -48,8 +69,8 @@ export function BtcLiquidationSignalCard({
   summary: BtcLiquidationSummary | null;
   spotPrice?: number;
 }) {
-  const signal = summary?.read.signal;
-  const tone = signal ? SIGNAL_STYLES[signal] : null;
+  const read = summary?.read;
+  const signal = read?.signal;
   const magnets =
     spotPrice != null && signal != null ? buildBtcLiquidationMagnetBands(spotPrice, signal) : null;
 
@@ -67,7 +88,7 @@ export function BtcLiquidationSignalCard({
         </div>
       </div>
 
-      {!summary || !tone ? (
+      {!summary || !read ? (
         <p className="mt-8 text-sm text-white/40">Liquidation signal is unavailable right now.</p>
       ) : (
         <div className="mt-6 space-y-5">
@@ -75,12 +96,12 @@ export function BtcLiquidationSignalCard({
             <span
               className={cn(
                 "inline-flex rounded-full px-4 py-1.5 text-[15px] font-semibold tracking-wide ring-1 ring-inset",
-                tone.className
+                signalBadgeClass(read)
               )}
             >
-              {tone.label}
+              {read.signalLabel}
             </span>
-            <p className="text-sm text-white/55">{summary.read.reason}</p>
+            <p className="text-sm text-white/55">{read.reason}</p>
           </div>
 
           {magnets ? (
@@ -104,7 +125,7 @@ export function BtcLiquidationSignalCard({
           </ul>
 
           <p className="text-[11px] text-white/35">
-            Red = long liqs · Green = short liqs · Signal uses {summary.read.basedOn} window
+            Red = long liqs · Green = short liqs · Signal blends 1h (35%) · 4h (40%) · 24h (25%)
             {summary.updatedAt ? ` · ${summary.updatedAt}` : ""}
           </p>
         </div>

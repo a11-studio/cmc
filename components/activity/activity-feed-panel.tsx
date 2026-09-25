@@ -56,8 +56,8 @@ export function ActivityFeedPanel({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
+    <div className="space-y-8">
+      <div className="space-y-4">
         <CycleResultList cycles={cycles} />
 
         {hasMoreCycles ? (
@@ -70,10 +70,12 @@ export function ActivityFeedPanel({
         ) : null}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {events.length > 0 ? (
-          <Card className="px-5 py-2">
-            <ActivityTimeline events={events} showAgent />
+          <Card className="overflow-hidden p-0">
+            <div className="overflow-x-auto">
+              <ActivityTimeline events={events} showAgent alignWithActivityFeed />
+            </div>
           </Card>
         ) : (
           <EmptyState

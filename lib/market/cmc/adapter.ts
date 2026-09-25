@@ -110,6 +110,7 @@ export class CoinMarketCapProvider implements MarketDataProvider {
           ? {
               btcLiquidation: {
                 signal: btcLiquidation.read.signal,
+                signalLabel: btcLiquidation.read.signalLabel,
                 reason: btcLiquidation.read.reason,
                 basedOn: btcLiquidation.read.basedOn,
                 ...(btcLiquidation.updatedAt ? { updatedAt: btcLiquidation.updatedAt } : {}),

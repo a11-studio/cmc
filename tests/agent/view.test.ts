@@ -124,7 +124,11 @@ describe("Momentum Alpha view serialization", () => {
       "RISK CHECK",
       "TRADE EXECUTED",
     ]);
-    expect(events.at(-1)?.description).toMatch(/BUY BTC \$1,000\.00 · equity \$10,000\.00/);
+    expect(events.at(-1)).toMatchObject({
+      action: "BUY",
+      symbol: "BTC",
+      description: "$1,000.00 · equity $10,000.00",
+    });
     expect(detail?.events).toEqual(events);
     expect(serializeMomentumAlphaApi(view).cycles[0]?.cycleId).toBe("cycle-1");
   });

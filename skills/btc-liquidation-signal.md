@@ -16,9 +16,9 @@ Read `snapshot.market.btcLiquidation` every cycle. Trade BTC only.
 Act when `btcLiquidation` is present. If missing, HOLD.
 
 ## Signals
-- `signal: bullish` — short liquidations dominated the anchor window (typically 4h).
-- `signal: bearish` — long liquidations dominated.
-- `signal: neutral` — long and short shares are balanced.
+- `signal: bullish` — blended short-liquidation skew across 1h (35%), 4h (40%), and 24h (25%).
+- `signal: bearish` — blended long-liquidation skew across the same windows.
+- `signal: neutral` — blended skew is within the balance band.
 Use `reason` and `basedOn` for the cycle narrative. Do not recompute liquidations from other fields.
 
 ## Entry

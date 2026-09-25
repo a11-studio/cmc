@@ -32,7 +32,7 @@ function activeDecision(
     confidence: 88,
     timeHorizon: "SHORT",
     reasons: [
-      `BTC liquidation signal is ${read.signal} (${read.basedOn} window).`,
+      `BTC liquidation signal is ${read.signal} (${read.basedOn === "blend" ? "1h+4h+24h blend" : `${read.basedOn} window`}).`,
       read.reason,
     ],
     riskFactors: ["Signal is coarse flow bias, not a price forecast."],
