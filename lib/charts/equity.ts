@@ -21,18 +21,9 @@ export function equityIndexAtSvgX(
   count: number,
   padLeft: number,
   plotWidth: number,
-  edgePx = 24,
 ): number {
   if (count <= 1) {
     return 0;
-  }
-
-  if (svgX <= padLeft + edgePx) {
-    return 0;
-  }
-
-  if (svgX >= padLeft + plotWidth - edgePx) {
-    return count - 1;
   }
 
   return nearestEquityIndex((svgX - padLeft) / plotWidth, count);

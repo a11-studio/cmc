@@ -23,12 +23,15 @@ describe("equity chart helpers", () => {
     expect(nearestEquityIndex(-1, 5)).toBe(0);
   });
 
-  it("selects the first and last points at the plot edges", () => {
+  it("maps horizontal position to the nearest point without edge dead zones", () => {
     expect(equityIndexAtSvgX(8, 5, 8, 656)).toBe(0);
-    expect(equityIndexAtSvgX(20, 5, 8, 656)).toBe(0);
     expect(equityIndexAtSvgX(664, 5, 8, 656)).toBe(4);
-    expect(equityIndexAtSvgX(650, 5, 8, 656)).toBe(4);
     expect(equityIndexAtSvgX(8 + 656 / 2, 5, 8, 656)).toBe(2);
+    // No sticky edge band: index increases smoothly from the plot start (old 24px zones jumped 0 → N).
+    const dense = 80;
+    expect(equityIndexAtSvgX(8, dense, 8, 656)).toBe(0);
+    expect(equityIndexAtSvgX(8 + 1, dense, 8, 656)).toBe(0);
+    expect(equityIndexAtSvgX(8 + 656, dense, 8, 656)).toBe(dense - 1);
   });
 
   it("computes change versus start", () => {
