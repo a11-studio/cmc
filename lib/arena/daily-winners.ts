@@ -32,18 +32,21 @@ export async function fetchDailyWinners(): Promise<DailyWinnerEntry[]> {
     live.map((agent) => [agent.id, { name: agent.displayName, mark: agent.mark, strategy: agent.description }])
   );
 
+  // Newest rows only — ascending + limit without a cap would drop recent days once history grows.
   const { data, error } = await client
     .from("portfolio_snapshots")
     .select("agent_id, equity, timestamp")
     .in("agent_id", agentIds)
-    .order("timestamp", { ascending: true })
+    .order("timestamp", { ascending: false })
     .limit(SNAPSHOT_LIMIT);
 
   if (error) {
     throw new Error(`daily winners: ${error.message}`);
   }
 
-  const rows = (data ?? []) as DailyWinnerEquityRow[];
+  const rows = ((data ?? []) as DailyWinnerEquityRow[]).sort((left, right) =>
+    left.timestamp.localeCompare(right.timestamp)
+  );
   const byAgent = buildDailyPnlByAgent(rows, agentMeta);
 
   return pickDailyWinners(byAgent, agentMeta);

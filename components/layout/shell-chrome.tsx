@@ -8,7 +8,7 @@ import type { MarketTickerQuote } from "@/types/arena";
 
 const PLACEHOLDER_NOW = "2026-01-01T00:00:00.000Z";
 
-type ShellPayload = {
+export type ShellChromePayload = {
   quotes: MarketTickerQuote[];
   lastCompletedAt?: string | null;
   serverNow: string;
@@ -17,14 +17,18 @@ type ShellPayload = {
   cycleInProgress?: boolean;
 };
 
+type ShellPayload = ShellChromePayload;
+
 export function ShellChrome({
+  initialPayload,
   showDebugControls = false,
   showHumanTrader = false,
 }: {
+  initialPayload?: ShellPayload | null;
   showDebugControls?: boolean;
   showHumanTrader?: boolean;
 }) {
-  const [payload, setPayload] = useState<ShellPayload | null>(null);
+  const [payload, setPayload] = useState<ShellPayload | null>(initialPayload ?? null);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/shell", { cache: "no-store" });

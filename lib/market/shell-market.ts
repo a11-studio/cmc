@@ -1,12 +1,13 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { marketQuotes } from "@/lib/mock-data";
-import { createMarketDataProvider } from "@/lib/market/provider";
+import { cmcGetJson, CMC_QUOTES_PATH } from "@/lib/market/cmc/client";
+import { normalizeQuotesResponse } from "@/lib/market/normalize";
 import { snapshotToTickers } from "@/lib/market/tickers";
-import { SUPPORTED_SYMBOLS } from "@/lib/market/symbols";
-import { hasServerEnv } from "@/lib/env.server";
+import { ASSET_CATALOG, SUPPORTED_SYMBOLS } from "@/lib/market/symbols";
 import type { MarketSource, MarketTickerQuote } from "@/types/arena";
 
 export type ShellMarket = {
@@ -14,9 +15,39 @@ export type ShellMarket = {
   source: MarketSource;
 };
 
+function cmcApiKey(): string {
+  return process.env.CMC_API_KEY?.trim() ?? "";
+}
+
+function sampleShellQuotes(): MarketTickerQuote[] {
+  return marketQuotes.map((quote) => ({
+    symbol: quote.symbol,
+    price: quote.price,
+    change24h: quote.change24h,
+  }));
+}
+
 const getCachedLiveQuotes = unstable_cache(
   async () => {
-    const snapshot = await createMarketDataProvider().getMarketSnapshot([...SUPPORTED_SYMBOLS]);
+    const apiKey = cmcApiKey();
+
+    if (!apiKey) {
+      throw new Error("CMC_API_KEY is not configured");
+    }
+
+    const ids = SUPPORTED_SYMBOLS.map((symbol) => String(ASSET_CATALOG[symbol].cmcId)).join(",");
+    const payload = await cmcGetJson({
+      apiKey,
+      path: CMC_QUOTES_PATH,
+      params: { id: ids, convert: "USD" },
+      fetchImpl: fetch,
+      required: true,
+    });
+    const snapshot = normalizeQuotesResponse(payload, [...SUPPORTED_SYMBOLS], {
+      cycleId: randomUUID(),
+      timestamp: new Date().toISOString(),
+    });
+
     return snapshotToTickers(snapshot);
   },
   ["shell-market-quotes"],
@@ -24,14 +55,12 @@ const getCachedLiveQuotes = unstable_cache(
 );
 
 export const getShellMarket = cache(async (): Promise<ShellMarket> => {
-  if (!hasServerEnv("CMC_API_KEY")) {
+  const apiKey = cmcApiKey();
+
+  if (!apiKey) {
     return {
       source: "sample",
-      quotes: marketQuotes.map((quote) => ({
-        symbol: quote.symbol,
-        price: quote.price,
-        change24h: quote.change24h,
-      })),
+      quotes: sampleShellQuotes(),
     };
   }
 
@@ -41,9 +70,10 @@ export const getShellMarket = cache(async (): Promise<ShellMarket> => {
       quotes: await getCachedLiveQuotes(),
     };
   } catch {
+    // Keep the ticker readable when CMC is down, rate-limited, or misconfigured.
     return {
-      source: "unavailable",
-      quotes: SUPPORTED_SYMBOLS.map((symbol) => ({ symbol })),
+      source: "sample",
+      quotes: sampleShellQuotes(),
     };
   }
 });
