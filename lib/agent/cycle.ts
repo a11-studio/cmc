@@ -22,6 +22,7 @@ import type { MarketSnapshot } from "@/lib/market/types";
 import { markToMarket } from "@/lib/paper/portfolio";
 import { isPaperTradingError } from "@/lib/paper/errors";
 import type { PaperAccount, PaperExecution, PaperValuation, TradeDecision } from "@/lib/paper/types";
+import { resolveRiskConstraints } from "@/lib/risk/agent-constraints";
 import type { RiskResult } from "@/lib/risk/types";
 
 function cloneAccount(account: PaperAccount): PaperAccount {
@@ -220,6 +221,8 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
 
     const floorChat = deps.loadFloorChatForAgent ? await deps.loadFloorChatForAgent(agent.id) : undefined;
 
+    const riskConstraints = resolveRiskConstraints(agent.id);
+
     const decisionContext = createDecisionContext({
       agentId: agent.id,
       agentName: definition.displayName,
@@ -228,6 +231,7 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
       snapshot,
       portfolio: toDecisionPortfolio(valuation),
       floorChat,
+      constraints: riskConstraints,
     });
 
     push("ANALYZING", "Requesting TradeDecision from Gemini");
@@ -249,6 +253,7 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
         snapshot,
         portfolio: toRiskPortfolio(valuation, deps.store.getDayStartEquity(startedAtDate)),
         agentStatus: deps.store.getAgentStatus(),
+        constraints: riskConstraints,
       });
     } catch (error) {
       status = "FAILED_RISK";

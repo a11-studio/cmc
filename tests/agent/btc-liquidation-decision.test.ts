@@ -43,14 +43,14 @@ describe("tradeDecisionFromBtcLiquidationSignal", () => {
     expect(decision.action).toBe("SHORT");
     expect(decision.symbol).toBe("BTC");
     expect(decision.allocationPercent).toBeGreaterThan(0);
-    expect(decision.allocationPercent).toBeLessThanOrEqual(15);
+    expect(decision.allocationPercent).toBe(100);
   });
 
   it("BUYs BTC on bullish signal within headroom", () => {
     const decision = tradeDecisionFromBtcLiquidationSignal(contextWithSignal("bullish", "short squeeze"));
     expect(decision.action).toBe("BUY");
     expect(decision.symbol).toBe("BTC");
-    expect(decision.allocationPercent).toBeGreaterThan(0);
+    expect(decision.allocationPercent).toBe(100);
   });
 
   it("HOLDs when liquidation read is missing", () => {

@@ -18,6 +18,7 @@ import type {
 import type { TimeHorizon, TradeAction } from "@/lib/paper/types";
 import { SUPPORTED_SYMBOLS } from "@/lib/market/symbols";
 import type { RiskConstraints } from "@/lib/risk/constraints";
+import { resolveRiskConstraints } from "@/lib/risk/agent-constraints";
 import { computeTradingHeadroom } from "@/lib/risk/headroom";
 
 const ACTIONS: readonly TradeAction[] = ["BUY", "SELL", "HOLD", "SHORT"];
@@ -44,6 +45,7 @@ export function createDecisionContext(input: {
   }
 
   const definition = findAgentDefinition(input.agentId);
+  const riskConstraints = resolveRiskConstraints(input.agentId, input.constraints);
   const skill = input.skill?.trim() || (definition ? loadAgentSkill(definition.skillPath) : "");
 
   if (!skill) {
@@ -62,7 +64,7 @@ export function createDecisionContext(input: {
     headroom: computeTradingHeadroom({
       portfolio: input.portfolio,
       symbols: SUPPORTED_SYMBOLS,
-      constraints: input.constraints,
+      constraints: riskConstraints,
     }),
     ...(input.floorChat && input.floorChat.length > 0 ? { floorChat: input.floorChat } : {}),
   };

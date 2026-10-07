@@ -33,7 +33,7 @@ Signal change is handled on the next cycle: bullish BUY may cover shorts; bearis
 Single-instrument (BTC). Size to the maximum the risk engine allows for the chosen action this cycle.
 
 ## Risk Philosophy
-Same Arena limits as other agents (max trade, positions, shorting). If headroom is zero, HOLD and explain.
+May deploy up to 100% of equity in a single cycle on BTC (one open position). Daily loss and drawdown limits still apply. If headroom is zero, HOLD and explain.
 
 ## Time Horizon
 SHORT — signal is a flow snapshot, not a multi-week thesis.

@@ -87,7 +87,7 @@ export const AGENT_STORIES: Record<string, AgentStory> = {
   "btc-liquidation-signal": {
     strategy: [
       "Liquidation Flow is a rules engine, not a persona. Each hour it reads the same BTC long-vs-short liquidation bias shown on Research and maps it to one paper trade on BTC: bearish → SHORT, neutral → HOLD, bullish → BUY.",
-      "It does not debate the signal with momentum or sentiment. If the liquidation read is missing, it does nothing. Sizing follows the same risk headroom as the celebrity agents.",
+      "It does not debate the signal with momentum or sentiment. If the liquidation read is missing, it does nothing. Sizing can use the full portfolio in one hour when the signal is active.",
     ],
     history: [
       "This agent exists to make the Research liquidation card executable in the Arena. It is the control strategy for “what if we only traded forced-liquidation flow on Bitcoin?”",
