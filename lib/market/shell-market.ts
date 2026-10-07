@@ -48,7 +48,7 @@ const getCachedLiveQuotes = unstable_cache(
       timestamp: new Date().toISOString(),
     });
 
-    return snapshotToTickers(snapshot);
+    return snapshotToTickers({ ...snapshot, market: snapshot.market ?? {} });
   },
   ["shell-market-quotes"],
   { revalidate: 30 }
