@@ -3,6 +3,7 @@ import "server-only";
 import { STALE_CYCLE_CLAIM_MS } from "@/lib/agent/cycle-claim";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import { invalidateArenaCycleControlCache } from "@/lib/agent/cycle-control";
+import { invalidateDashboardLiteCache } from "@/lib/arena/dashboard-lite-cache";
 import { invalidateAgentEquityHistoryCache } from "@/lib/agent/equity-history";
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
 import { loadPaperAccountForDashboard, loadPaperAccountForExecution } from "@/lib/agent/hydrate-account";
@@ -70,6 +71,7 @@ export function invalidateAgentHydrateCache(agentId?: string): void {
   }
 
   invalidateArenaCycleControlCache();
+  invalidateDashboardLiteCache();
 }
 
 export function createSupabaseArenaWriter(client: SupabaseClient): ArenaWriter {
@@ -255,6 +257,7 @@ export async function claimAgentCycle(agentId: string, cycleId: string, now = ne
   throwIfError(error, "claim cycle");
 
   if ((data?.length ?? 0) > 0) {
+    invalidateArenaCycleControlCache();
     return true;
   }
 
@@ -271,7 +274,12 @@ export async function claimAgentCycle(agentId: string, cycleId: string, now = ne
 
   throwIfError(reclaimError, "reclaim cycle");
 
-  return (reclaimed?.length ?? 0) > 0;
+  if ((reclaimed?.length ?? 0) > 0) {
+    invalidateArenaCycleControlCache();
+    return true;
+  }
+
+  return false;
 }
 
 export async function hydrateMomentumAlphaStore(): Promise<AgentCycleStore> {

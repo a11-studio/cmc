@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TopBar } from "@/components/layout/top-bar";
 import { ARENA_LIVE_REFRESH_EVENT } from "@/lib/arena/live-events";
-import { shouldPollArenaShellForCycle } from "@/lib/agent/scheduler";
+import { SHELL_POLL_INTERVAL_MS, shouldPollShellNow } from "@/lib/arena/shell-poll";
 import type { MarketTickerQuote } from "@/types/arena";
 
 const PLACEHOLDER_NOW = "2026-01-01T00:00:00.000Z";
@@ -29,6 +29,9 @@ export function ShellChrome({
   showHumanTrader?: boolean;
 }) {
   const [payload, setPayload] = useState<ShellPayload | null>(initialPayload ?? null);
+  const payloadRef = useRef(payload);
+
+  payloadRef.current = payload;
 
   const load = useCallback(async () => {
     const response = await fetch("/api/shell", { cache: "no-store" });
@@ -55,14 +58,47 @@ export function ShellChrome({
   }, [load]);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      if (payload?.cycleInProgress || shouldPollArenaShellForCycle(new Date())) {
+    let intervalId: number | undefined;
+
+    function tick() {
+      if (shouldPollShellNow(payloadRef.current, new Date())) {
         void load();
       }
-    }, 2000);
+    }
 
-    return () => window.clearInterval(id);
-  }, [load, payload?.cycleInProgress]);
+    function stopPolling() {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    }
+
+    function startPolling() {
+      if (intervalId !== undefined) {
+        return;
+      }
+
+      intervalId = window.setInterval(tick, SHELL_POLL_INTERVAL_MS);
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void load();
+        startPolling();
+        return;
+      }
+
+      stopPolling();
+    }
+
+    startPolling();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [load]);
 
   return (
     <TopBar

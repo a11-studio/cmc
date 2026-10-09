@@ -14,8 +14,13 @@ import {
   ttlCacheKey,
 } from "@/lib/server/ttl-cache";
 import { logArenaEgress, approximateJsonBytes } from "@/lib/agent/egress-log";
+import { SHELL_CYCLE_CONTROL_TTL_MS } from "@/lib/agent/cycle-control-constants";
+import { runInFlight } from "@/lib/server/in-flight";
 
 const CYCLE_CONTROL_CACHE_KEY = ttlCacheKey(["arena", "cycle-control"]);
+const SHELL_CYCLE_CONTROL_CACHE_KEY = ttlCacheKey(["arena", "cycle-control", "shell"]);
+export { SHELL_CYCLE_CONTROL_TTL_MS } from "@/lib/agent/cycle-control-constants";
+const CYCLE_CONTROL_IN_FLIGHT_KEY = ttlCacheKey(["arena", "cycle-control", "fetch"]);
 
 export type ArenaCycleControl = {
   lastCompletedAt: string | null;
@@ -46,12 +51,14 @@ function controlFromMemory(): ArenaCycleControl {
 }
 
 async function fetchArenaCycleControlFromSupabase(): Promise<ArenaCycleControl> {
-  try {
-    return await fetchArenaCycleControlFromSupabaseUncached();
-  } catch (error) {
-    console.error("cycle-control supabase read failed", error);
-    return controlFromMemory();
-  }
+  return runInFlight(CYCLE_CONTROL_IN_FLIGHT_KEY, async () => {
+    try {
+      return await fetchArenaCycleControlFromSupabaseUncached();
+    } catch (error) {
+      console.error("cycle-control supabase read failed", error);
+      return controlFromMemory();
+    }
+  });
 }
 
 async function fetchArenaCycleControlFromSupabaseUncached(): Promise<ArenaCycleControl> {
@@ -139,13 +146,22 @@ async function fetchArenaCycleControlFromSupabaseUncached(): Promise<ArenaCycleC
   };
 }
 
-/** Fresh read for /api/shell polling (no TTL cache). */
+/** Short TTL for /api/shell polling — coalesced with other cycle-control readers. */
 export async function getArenaCycleControlStateForShell(): Promise<ArenaCycleControl> {
   if (!isSupabasePersistenceConfigured()) {
     return controlFromMemory();
   }
 
-  return fetchArenaCycleControlFromSupabase();
+  const cached = getTtlCached<ArenaCycleControl>(SHELL_CYCLE_CONTROL_CACHE_KEY);
+
+  if (cached) {
+    logArenaEgress("cycle-control", { cache: "hit", surface: "shell" });
+    return cached;
+  }
+
+  const state = await fetchArenaCycleControlFromSupabase();
+  setTtlCached(SHELL_CYCLE_CONTROL_CACHE_KEY, state, SHELL_CYCLE_CONTROL_TTL_MS);
+  return state;
 }
 
 export async function getArenaCycleControlState(): Promise<ArenaCycleControl> {
@@ -167,4 +183,5 @@ export async function getArenaCycleControlState(): Promise<ArenaCycleControl> {
 
 export function invalidateArenaCycleControlCache(): void {
   invalidateTtlCache(CYCLE_CONTROL_CACHE_KEY);
+  invalidateTtlCache(SHELL_CYCLE_CONTROL_CACHE_KEY);
 }

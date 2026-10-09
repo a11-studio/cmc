@@ -1,7 +1,6 @@
 import "server-only";
 
 import { EQUITY_HISTORY_LIMIT } from "@/lib/agent/equity-history";
-import { latestEquityHistoryRows } from "@/lib/agent/equity-history-rows";
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
 import { unwrapAccountPayload } from "@/lib/agent/persist";
 import { reviveCycle } from "@/lib/agent/persist";
@@ -23,7 +22,14 @@ import {
   type DashboardLite,
   type DashboardLiteAgent,
 } from "@/lib/arena/dashboard-lite-types";
-import { filterAgentPortfolioEquityHistoryForDisplay } from "@/lib/agent/portfolio-equity-display";
+import {
+  getCachedDashboardLite,
+  setCachedDashboardLite,
+} from "@/lib/arena/dashboard-lite-cache";
+import {
+  buildEquitySeriesByAgent,
+  buildTradeCountsByAgent,
+} from "@/lib/arena/dashboard-lite-queries";
 import { listLiveAgents } from "@/lib/agents/registry";
 import { getPersistenceMode, isSupabasePersistenceConfigured } from "@/lib/env.server";
 import { getShellMarket } from "@/lib/market/shell-market";
@@ -77,17 +83,18 @@ type CycleRow = {
   status: string | null;
 };
 
+/** One indexed query per agent (limit 120) — same egress as before, shared row shaping. */
 async function fetchEquitySeriesByAgent(
-  client: ReturnType<typeof createSupabaseAdminClient>,
+  client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
   agentIds: readonly string[]
 ): Promise<Record<string, EquityCurvePoint[]>> {
-  const result: Record<string, EquityCurvePoint[]> = {};
+  const seriesByAgent: Record<string, EquityCurvePoint[]> = {};
 
   await Promise.all(
     agentIds.map(async (agentId) => {
-      const { data, error } = await client!
+      const { data, error } = await client
         .from("portfolio_snapshots")
-        .select("equity, timestamp, cycle_id")
+        .select("agent_id, equity, timestamp, cycle_id")
         .eq("agent_id", agentId)
         .order("timestamp", { ascending: false })
         .limit(EQUITY_HISTORY_LIMIT);
@@ -96,52 +103,48 @@ async function fetchEquitySeriesByAgent(
         throw new Error(`dashboard-lite equity: ${error.message}`);
       }
 
-      const points = latestEquityHistoryRows(data ?? [], EQUITY_HISTORY_LIMIT).flatMap((row) => {
-        if (typeof row.equity !== "number" || typeof row.timestamp !== "string") {
-          return [];
-        }
-
-        return [
-          {
-            equity: row.equity,
-            at: row.timestamp,
-            label: typeof row.cycle_id === "string" ? row.cycle_id : undefined,
-          },
-        ];
-      });
-
-      result[agentId] = filterAgentPortfolioEquityHistoryForDisplay(agentId, points);
+      const built = buildEquitySeriesByAgent(data ?? [], [agentId], EQUITY_HISTORY_LIMIT);
+      seriesByAgent[agentId] = built[agentId] ?? [];
     })
   );
 
-  return result;
+  return seriesByAgent;
 }
 
-async function fetchTradeCounts(
+async function fetchBatchedTradeCounts(
   client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
   agentIds: readonly string[]
 ): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
+  const { data, error } = await client.from("trades").select("agent_id").in("agent_id", [...agentIds]);
 
-  await Promise.all(
-    agentIds.map(async (agentId) => {
-      const { count, error } = await client
-        .from("trades")
-        .select("id", { count: "exact", head: true })
-        .eq("agent_id", agentId);
+  if (error) {
+    throw new Error(`dashboard-lite trade count: ${error.message}`);
+  }
 
-      if (error) {
-        throw new Error(`dashboard-lite trade count: ${error.message}`);
-      }
-
-      counts.set(agentId, count ?? 0);
-    })
-  );
-
-  return counts;
+  return buildTradeCountsByAgent(data ?? [], agentIds);
 }
 
 export async function fetchDashboardLite(): Promise<DashboardLite> {
+  const cached = getCachedDashboardLite();
+
+  if (cached) {
+    logArenaEgress("dashboard-lite", {
+      queryCount: 0,
+      cyclePayloadCount: 0,
+      approxBytes: 0,
+      agents: cached.agents.length,
+      recentFills: cached.recentFills.length,
+      cache: "hit",
+    });
+    return cached;
+  }
+
+  const dashboard = await fetchDashboardLiteUncached();
+  setCachedDashboardLite(dashboard);
+  return dashboard;
+}
+
+async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
   const live = listLiveAgents();
   const agentIds = live.map((agent) => agent.id);
 
@@ -229,10 +232,10 @@ export async function fetchDashboardLite(): Promise<DashboardLite> {
 
   const [equitySeriesByAgent, tradeCounts] = await Promise.all([
     fetchEquitySeriesByAgent(client, agentIds),
-    fetchTradeCounts(client, agentIds),
+    fetchBatchedTradeCounts(client, agentIds),
   ]);
 
-  queryCount += agentIds.length * 2;
+  queryCount += agentIds.length + 1;
 
   for (const series of Object.values(equitySeriesByAgent)) {
     approxBytes += approximateJsonBytes(series);
