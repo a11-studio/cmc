@@ -8,7 +8,7 @@ import { SignedPercent } from "@/components/shared/signed-value";
 import type { TradeCheck } from "@/lib/agent/trade-outcomes";
 import { formatChartTime, formatUsd } from "@/lib/format";
 import {
-  groupTradeChecksByDay,
+  buildTradeCheckContributionGrid,
   tradeCheckMovePercent,
   tradeCheckTone,
   type TradeCheckTone,
@@ -22,6 +22,14 @@ const TONE: Record<TradeCheckTone, string> = {
   hold: "transparent",
   blocked: "transparent",
 };
+
+const ROW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const VISIBLE_ROW_LABELS = new Set(["Mon", "Wed", "Fri"]);
+
+const GAP_CLASS = "gap-1";
+const CELL = "size-[11px]";
+const CELL_ROW = "h-[11px]";
+const CELL_COL = "w-[11px]";
 
 function outcomeLabel(check: TradeCheck) {
   const tone = tradeCheckTone(check);
@@ -61,7 +69,15 @@ function cellClassName(tone: TradeCheckTone) {
   return "border-white/5";
 }
 
-function TradeCheckCell({ check }: { check: TradeCheck }) {
+function TradeCheckCell({
+  check,
+  className,
+  dayCount,
+}: {
+  check: TradeCheck;
+  className?: string;
+  dayCount?: number;
+}) {
   const [open, setOpen] = useState(false);
   const tone = tradeCheckTone(check);
   const move = tradeCheckMovePercent(check.fillPrice, check.checkPrice);
@@ -72,7 +88,11 @@ function TradeCheckCell({ check }: { check: TradeCheck }) {
         <button
           type="button"
           aria-label={`${check.side} ${check.symbol} ${outcomeLabel(check)}`}
-          className={cn("size-3.5 rounded-[3px] border", cellClassName(tone))}
+          className={cn(
+            `${CELL} shrink-0 rounded-[2px] border`,
+            cellClassName(tone),
+            className
+          )}
           style={TONE[tone] === "transparent" ? undefined : { backgroundColor: TONE[tone] }}
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => setOpen(false)}
@@ -85,6 +105,9 @@ function TradeCheckCell({ check }: { check: TradeCheck }) {
         sideOffset={8}
         className="w-[196px] max-w-none flex-col items-start gap-0 border border-white/10 bg-[#101010] px-3 py-2.5 text-left text-foreground"
       >
+        {dayCount != null && dayCount > 1 ? (
+          <p className="text-[11px] text-tertiary">{dayCount} decisions this day</p>
+        ) : null}
         <p className="text-[11px] text-tertiary">{formatChartTime(check.createdAt)}</p>
         <p className="mt-1 text-sm font-medium text-foreground">
           {check.side} <TickerPhrase text={check.symbol} size="xs" />
@@ -115,6 +138,27 @@ function TradeCheckCell({ check }: { check: TradeCheck }) {
   );
 }
 
+function DayCell({ checks }: { checks: TradeCheck[] }) {
+  if (checks.length === 0) {
+    return (
+      <div
+        className={`${CELL} shrink-0 rounded-[2px] bg-white/[0.06]`}
+        aria-hidden="true"
+      />
+    );
+  }
+
+  const primary = checks[checks.length - 1];
+
+  return (
+    <TradeCheckCell
+      check={primary}
+      className={checks.length > 1 ? "ring-1 ring-inset ring-white/15" : undefined}
+      dayCount={checks.length}
+    />
+  );
+}
+
 export function TradeHeatmap({
   checks,
   emptyLabel = "Squares appear after a cycle. Color waits for the next hourly check.",
@@ -122,7 +166,7 @@ export function TradeHeatmap({
   checks: TradeCheck[];
   emptyLabel?: string;
 }) {
-  const groups = useMemo(() => groupTradeChecksByDay(checks), [checks]);
+  const grid = useMemo(() => buildTradeCheckContributionGrid(checks), [checks]);
   const confirmed = checks.filter((check) => tradeCheckTone(check) === "win").length;
   const against = checks.filter((check) => tradeCheckTone(check) === "loss").length;
   const pending = checks.filter((check) => tradeCheckTone(check) === "pending").length;
@@ -140,25 +184,58 @@ export function TradeHeatmap({
           it. Hollow squares are still waiting. HOLD and blocked attempts count too.
         </p>
       </CardHeader>
-      <CardContent className="pt-4">
-        {groups.length === 0 ? (
+      <CardContent className="pt-5">
+        {grid.columns.length === 0 ? (
           <p className="text-[11px] text-white/40">{emptyLabel}</p>
         ) : (
-          <div className="space-y-3">
-            {groups.map((group) => (
-              <div key={group.date} className="flex items-start gap-3">
-                <p className="w-12 shrink-0 pt-0.5 text-[10px] text-white/40">{group.label}</p>
-                <div className="flex flex-wrap gap-[4px]">
-                  {group.checks.map((check) => (
-                    <TradeCheckCell key={check.tradeId} check={check} />
+          <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-5 sm:px-5">
+            <div className="overflow-x-auto">
+              <div className={`inline-flex min-w-0 flex-col ${GAP_CLASS}`}>
+                <div className={`flex ${GAP_CLASS} pl-9 sm:pl-10`}>
+                  {grid.columns.map((column, columnIndex) => {
+                    const label = grid.monthLabels.find(
+                      (entry) => entry.columnIndex === columnIndex
+                    )?.label;
+
+                    return (
+                      <div
+                        key={column.weekStart}
+                        className={`${CELL_COL} shrink-0 text-[10px] leading-none text-white/40`}
+                      >
+                        {label ?? ""}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className={`flex ${GAP_CLASS}`}>
+                  <div
+                    className={`flex w-8 shrink-0 flex-col ${GAP_CLASS} pr-2 text-right sm:w-9`}
+                  >
+                    {ROW_LABELS.map((label) => (
+                      <div
+                        key={label}
+                        className={`flex ${CELL_ROW} items-center justify-end text-[10px] leading-none text-white/40`}
+                      >
+                        {VISIBLE_ROW_LABELS.has(label) ? label : ""}
+                      </div>
+                    ))}
+                  </div>
+
+                  {grid.columns.map((column) => (
+                    <div key={column.weekStart} className={`flex shrink-0 flex-col ${GAP_CLASS}`}>
+                      {column.days.map((day) => (
+                        <DayCell key={day.date} checks={day.checks} />
+                      ))}
+                    </div>
                   ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/40">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 text-[11px] text-white/40">
           {checks.length > 0 ? (
             <p>
               {checks.length} decisions · {confirmed} confirmed · {against} against
@@ -169,7 +246,7 @@ export function TradeHeatmap({
           ) : (
             <span />
           )}
-          <p className="flex items-center gap-[3px]">
+          <p className="flex items-center gap-1.5">
             Against
             <span className="size-[11px] rounded-[2px]" style={{ backgroundColor: "#F87171" }} />
             <span className="size-[11px] rounded-[2px] border border-white/40 bg-white/12" />

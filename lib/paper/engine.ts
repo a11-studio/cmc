@@ -373,32 +373,69 @@ function signedQuantityForTrade(trade: Trade): number {
   return 0;
 }
 
-/** Rebuild cash and open positions from the normalized trades ledger (source of truth). */
+function canApplyLedgerTrade(account: PaperAccount, trade: Trade, signedQuantity: number): boolean {
+  const existing = findPosition(account.positions, trade.symbol);
+  const notional = Math.abs(signedQuantity) * trade.price;
+
+  if (trade.side === "BUY" && signedQuantity > QUANTITY_EPSILON) {
+    if (notional > account.cash + QUANTITY_EPSILON) {
+      return false;
+    }
+  }
+
+  if (trade.side === "SELL") {
+    if (!existing || existing.quantity <= QUANTITY_EPSILON) {
+      return false;
+    }
+
+    if (Math.abs(signedQuantity) > existing.quantity + QUANTITY_EPSILON) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function applyLedgerTrade(account: PaperAccount, trade: Trade, signedQuantity: number): PaperAccount {
+  const existing = findPosition(account.positions, trade.symbol);
+  const fill = applySignedFill(existing, signedQuantity, trade.price, trade.symbol);
+
+  return {
+    ...account,
+    cash: account.cash - signedQuantity * trade.price,
+    realizedPnl: account.realizedPnl + fill.realizedPnl,
+    positions: replacePosition(account.positions, fill.next),
+    trades: [...account.trades, trade],
+  };
+}
+
+/**
+ * Rebuild account from the trades table, skipping fills that would have violated
+ * paper cash/position rules (e.g. after historical cash/position drift in persistence).
+ */
 export function replayPaperAccountFromTrades(
   initialCapital: number,
   trades: readonly Trade[],
   options: { peakEquity?: number } = {}
 ): PaperAccount {
-  let cash = initialCapital;
-  let realizedPnl = 0;
-  let positions: OpenPosition[] = [];
+  let account: PaperAccount = {
+    initialCapital,
+    cash: initialCapital,
+    peakEquity: options.peakEquity ?? initialCapital,
+    realizedPnl: 0,
+    positions: [],
+    trades: [],
+  };
 
   for (const trade of trades) {
     const signedQuantity = signedQuantityForTrade(trade);
-    const existing = findPosition(positions, trade.symbol);
-    const fill = applySignedFill(existing, signedQuantity, trade.price, trade.symbol);
 
-    cash -= signedQuantity * trade.price;
-    realizedPnl += fill.realizedPnl;
-    positions = replacePosition(positions, fill.next);
+    if (!canApplyLedgerTrade(account, trade, signedQuantity)) {
+      continue;
+    }
+
+    account = applyLedgerTrade(account, trade, signedQuantity);
   }
 
-  return {
-    initialCapital,
-    cash,
-    peakEquity: options.peakEquity ?? initialCapital,
-    realizedPnl,
-    positions,
-    trades: [...trades],
-  };
+  return account;
 }

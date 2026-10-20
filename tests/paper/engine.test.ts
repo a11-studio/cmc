@@ -7,7 +7,7 @@ import {
   markToMarket,
   replayPaperAccountFromTrades,
 } from "@/lib/paper";
-import type { TradeDecision } from "@/lib/paper";
+import type { Trade, TradeDecision } from "@/lib/paper";
 
 function snapshot(prices: Record<string, number>, cycleId = "cycle-1"): MarketSnapshot {
   return {
@@ -640,5 +640,38 @@ describe("paper trading engine", () => {
     expect(replayed.cash).toBeCloseTo(third.account.cash, 6);
     expect(replayed.positions).toEqual(third.account.positions);
     expect(replayed.realizedPnl).toBeCloseTo(third.account.realizedPnl, 6);
+  });
+
+  it("replayPaperAccountFromTrades skips buys that exceed available cash", () => {
+    const first = executePaperDecision(
+      createPaperAccount(),
+      decision({ action: "BUY", symbol: "BTC", allocationPercent: 90 }),
+      snapshot({ BTC: 100_000 }, "buy-1")
+    );
+
+    expect(first.ok).toBe(true);
+    if (!first.ok) {
+      return;
+    }
+
+    const invalidSecond: Trade = {
+      id: "ghost-buy",
+      symbol: "BTC",
+      side: "BUY",
+      quantity: 0.05,
+      price: 100_000,
+      notional: 5_000,
+      cycleId: "buy-2",
+      createdAt: "2026-10-19T06:00:00.000Z",
+    };
+
+    const replayed = replayPaperAccountFromTrades(INITIAL_CAPITAL, [
+      ...first.account.trades,
+      invalidSecond,
+    ]);
+
+    expect(replayed.cash).toBeCloseTo(first.account.cash, 6);
+    expect(replayed.positions[0]?.quantity).toBeCloseTo(first.account.positions[0]?.quantity ?? 0, 8);
+    expect(replayed.trades).toHaveLength(1);
   });
 });

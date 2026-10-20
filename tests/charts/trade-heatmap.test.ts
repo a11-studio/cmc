@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildTradeCheckContributionGrid,
   groupTradeChecksByDay,
   sortTradeChecks,
   tradeCheckMovePercent,
@@ -51,5 +52,16 @@ describe("trade check strip", () => {
     expect(tradeCheckTone(check({ kind: "blocked", win: null, fillPrice: null }))).toBe("blocked");
     expect(tradeCheckMovePercent(100, 104)).toBeCloseTo(4);
     expect(tradeCheckMovePercent(100, null)).toBeNull();
+  });
+
+  it("builds week columns with seven day rows for the contribution grid", () => {
+    const grid = buildTradeCheckContributionGrid([
+      check({ tradeId: "t1", createdAt: new Date(2026, 8, 18, 10).toISOString() }),
+      check({ tradeId: "t2", createdAt: new Date(2026, 8, 20, 10).toISOString() }),
+    ]);
+
+    expect(grid.columns.length).toBeGreaterThan(0);
+    expect(grid.columns[0]?.days).toHaveLength(7);
+    expect(grid.columns.some((column) => column.days.some((day) => day.checks.length === 1))).toBe(true);
   });
 });

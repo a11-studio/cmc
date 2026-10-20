@@ -1,43 +1,19 @@
 import "server-only";
 
-import { fetchEquitySeriesFromLedgerByAgent } from "@/lib/agent/equity-history-ledger";
 import { listLiveAgents } from "@/lib/agents/registry";
 import {
   buildDailyPnlByAgent,
   pickDailyWinners,
+  stabilizeIntradayEquitySpikes,
   type DailyWinnerEntry,
   type DailyWinnerEquityRow,
 } from "@/lib/arena/daily-winners-core";
 import { isSupabasePersistenceConfigured } from "@/lib/env.server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { EquityCurvePoint } from "@/types/arena";
-
 export type { DailyWinnerEntry } from "@/lib/arena/daily-winners-core";
 
-/** Enough UTC days for winners without huge market_snapshots IN queries. */
+/** Per-agent snapshot cap — enough UTC days for daily crowns without one global limit. */
 const SNAPSHOT_LIMIT = 360;
-
-function equityRowsFromLedgerSeries(
-  seriesByAgent: Record<string, readonly EquityCurvePoint[]>
-): DailyWinnerEquityRow[] {
-  const rows: DailyWinnerEquityRow[] = [];
-
-  for (const [agentId, points] of Object.entries(seriesByAgent)) {
-    for (const point of points) {
-      if (!point.at || !(point.equity > 0) || !Number.isFinite(point.equity)) {
-        continue;
-      }
-
-      rows.push({
-        agent_id: agentId,
-        equity: point.equity,
-        timestamp: point.at,
-      });
-    }
-  }
-
-  return rows;
-}
 
 async function fetchStoredWinnerEquityRows(
   client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
@@ -47,18 +23,26 @@ async function fetchStoredWinnerEquityRows(
     return [];
   }
 
-  const { data, error } = await client
-    .from("portfolio_snapshots")
-    .select("agent_id, equity, timestamp")
-    .in("agent_id", agentIds)
-    .order("timestamp", { ascending: false })
-    .limit(agentIds.length * SNAPSHOT_LIMIT);
+  const rows: DailyWinnerEquityRow[] = [];
 
-  if (error) {
-    throw new Error(`daily winners stored snapshots: ${error.message}`);
-  }
+  await Promise.all(
+    agentIds.map(async (agentId) => {
+      const { data, error } = await client
+        .from("portfolio_snapshots")
+        .select("agent_id, equity, timestamp")
+        .eq("agent_id", agentId)
+        .order("timestamp", { ascending: false })
+        .limit(SNAPSHOT_LIMIT);
 
-  return (data ?? []) as DailyWinnerEquityRow[];
+      if (error) {
+        throw new Error(`daily winners stored snapshots: ${error.message}`);
+      }
+
+      rows.push(...((data ?? []) as DailyWinnerEquityRow[]));
+    })
+  );
+
+  return rows;
 }
 
 export async function fetchDailyWinners(): Promise<DailyWinnerEntry[]> {
@@ -79,31 +63,14 @@ export async function fetchDailyWinners(): Promise<DailyWinnerEntry[]> {
     live.map((agent) => [agent.id, { name: agent.displayName, mark: agent.mark, strategy: agent.description }])
   );
 
-  const agentConfigs = live.map((agent) => ({
-    id: agent.id,
-    initialCapital: agent.initialCapital,
-  }));
-
-  let ledgerSeries: Record<string, EquityCurvePoint[]> = {};
-
-  try {
-    ledgerSeries = await fetchEquitySeriesFromLedgerByAgent(
-      client,
-      agentConfigs,
-      SNAPSHOT_LIMIT
-    );
-  } catch (error) {
-    console.warn("daily winners equity ledger failed; using stored snapshots", error);
-  }
-
-  const ledgerRows = equityRowsFromLedgerSeries(ledgerSeries);
-  const agentsWithoutLedger = agentIds.filter((agentId) => (ledgerSeries[agentId]?.length ?? 0) === 0);
-  const storedRows = await fetchStoredWinnerEquityRows(client, agentsWithoutLedger);
-
-  const rows = [...ledgerRows, ...storedRows].sort((left, right) =>
-    left.timestamp.localeCompare(right.timestamp)
+  // Daily crowns use dense portfolio_snapshots (one row per cycle). Ledger replay is
+  // sparse per agent and was hiding real day-to-day leaders (e.g. Warren Buffett).
+  const storedRows = await fetchStoredWinnerEquityRows(client, agentIds);
+  const rows = stabilizeIntradayEquitySpikes(
+    storedRows.sort((left, right) => left.timestamp.localeCompare(right.timestamp))
   );
   const byAgent = buildDailyPnlByAgent(rows, agentMeta);
+  const initialCapitalByAgent = new Map(live.map((agent) => [agent.id, agent.initialCapital]));
 
-  return pickDailyWinners(byAgent, agentMeta);
+  return pickDailyWinners(byAgent, agentMeta, initialCapitalByAgent);
 }
