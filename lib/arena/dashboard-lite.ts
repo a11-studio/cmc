@@ -1,6 +1,11 @@
 import "server-only";
 
 import { EQUITY_HISTORY_LIMIT } from "@/lib/agent/equity-history";
+import { valuationFromTradeLedger } from "@/lib/agent/equity-from-ledger";
+import {
+  fetchEquitySeriesFromLedgerByAgent,
+  groupLedgerTradesByAgent,
+} from "@/lib/agent/equity-history-ledger";
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
 import { unwrapAccountPayload } from "@/lib/agent/persist";
 import { reviveCycle } from "@/lib/agent/persist";
@@ -83,8 +88,7 @@ type CycleRow = {
   status: string | null;
 };
 
-/** One indexed query per agent (limit 120) — same egress as before, shared row shaping. */
-async function fetchEquitySeriesByAgent(
+async function fetchStoredEquitySeriesByAgent(
   client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
   agentIds: readonly string[]
 ): Promise<Record<string, EquityCurvePoint[]>> {
@@ -107,6 +111,40 @@ async function fetchEquitySeriesByAgent(
       seriesByAgent[agentId] = built[agentId] ?? [];
     })
   );
+
+  return seriesByAgent;
+}
+
+async function fetchEquitySeriesByAgent(
+  client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
+  definitions: readonly { id: string; initialCapital: number }[],
+  agentRows: Map<string, AgentRow>,
+  ledgerTradesByAgent: Map<string, import("@/lib/paper/types").Trade[]>
+): Promise<Record<string, EquityCurvePoint[]>> {
+  const agentConfigs = definitions.map((definition) => {
+    const row = agentRows.get(definition.id);
+    return {
+      id: definition.id,
+      initialCapital: row?.initial_capital ?? definition.initialCapital,
+    };
+  });
+
+  const fromLedger = await fetchEquitySeriesFromLedgerByAgent(
+    client,
+    agentConfigs,
+    EQUITY_HISTORY_LIMIT,
+    ledgerTradesByAgent
+  );
+  const stored = await fetchStoredEquitySeriesByAgent(
+    client,
+    agentConfigs.map((agent) => agent.id)
+  );
+  const seriesByAgent: Record<string, EquityCurvePoint[]> = {};
+
+  for (const agent of agentConfigs) {
+    seriesByAgent[agent.id] =
+      (fromLedger[agent.id]?.length ?? 0) > 0 ? fromLedger[agent.id]! : (stored[agent.id] ?? []);
+  }
 
   return seriesByAgent;
 }
@@ -182,6 +220,7 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
     agentsResult,
     positionsResult,
     tradesResult,
+    ledgerTradesResult,
     cyclesResult,
     latestMetricsResult,
   ] = await Promise.all([
@@ -200,6 +239,13 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
       .order("created_at", { ascending: false })
       .limit(DASHBOARD_LITE_RECENT_FILLS_LIMIT),
     client
+      .from("trades")
+      .select(
+        "id, agent_id, symbol, side, quantity, price, notional, realized_pnl, decision_id, created_at"
+      )
+      .in("agent_id", agentIds)
+      .order("created_at", { ascending: true }),
+    client
       .from("agent_cycles")
       .select("agent_id, payload, completed_at, status")
       .in("agent_id", agentIds)
@@ -215,9 +261,16 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
       .limit(agentIds.length * 2),
   ]);
 
-  queryCount += 5;
+  queryCount += 6;
 
-  for (const result of [agentsResult, positionsResult, tradesResult, cyclesResult, latestMetricsResult]) {
+  for (const result of [
+    agentsResult,
+    positionsResult,
+    tradesResult,
+    ledgerTradesResult,
+    cyclesResult,
+    latestMetricsResult,
+  ]) {
     if (result.error) {
       throw new Error(`dashboard-lite query failed: ${result.error.message}`);
     }
@@ -227,11 +280,19 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
     approximateJsonBytes(agentsResult.data) +
     approximateJsonBytes(positionsResult.data) +
     approximateJsonBytes(tradesResult.data) +
+    approximateJsonBytes(ledgerTradesResult.data) +
     approximateJsonBytes(cyclesResult.data) +
     approximateJsonBytes(latestMetricsResult.data);
 
+  const agentRows = new Map(
+    ((agentsResult.data as AgentRow[] | null) ?? []).map((row) => [row.id, row])
+  );
+  const ledgerTradesByAgent = groupLedgerTradesByAgent(
+    (ledgerTradesResult.data as TradeRowDb[] | null) ?? []
+  );
+
   const [equitySeriesByAgent, tradeCounts] = await Promise.all([
-    fetchEquitySeriesByAgent(client, agentIds),
+    fetchEquitySeriesByAgent(client, live, agentRows, ledgerTradesByAgent),
     fetchBatchedTradeCounts(client, agentIds),
   ]);
 
@@ -290,27 +351,32 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
     decisionsByAgent.set(agentId, cycleToDecisionRecord(revived));
   }
 
-  const agentRows = new Map(
-    ((agentsResult.data as AgentRow[] | null) ?? []).map((row) => [row.id, row])
-  );
-
   const positionsByAgent: Record<string, PositionRow[]> = {};
+  const livePrices = Object.fromEntries(priceMap);
 
   const agents: DashboardLiteAgent[] = live.map((definition) => {
     const row = agentRows.get(definition.id);
     const unwrapped = row ? unwrapAccountPayload(row.account_payload) : null;
     const initialCapital = row?.initial_capital ?? definition.initialCapital;
-    const cash = unwrapped?.account.cash ?? initialCapital;
+    const ledgerTrades = ledgerTradesByAgent.get(definition.id) ?? [];
+    const ledgerValuation =
+      ledgerTrades.length > 0
+        ? valuationFromTradeLedger(initialCapital, ledgerTrades, livePrices)
+        : null;
     const snapshot = latestSnapshotByAgent.get(definition.id);
     const equity =
+      ledgerValuation?.portfolio.equity ??
       row?.last_equity ??
       snapshot?.equity ??
       unwrapped?.account.cash ??
       initialCapital;
+    const cash = ledgerValuation?.portfolio.cash ?? unwrapped?.account.cash ?? initialCapital;
     const returnPercent =
+      ledgerValuation?.portfolio.returnPercent ??
       snapshot?.return_percent ??
       (initialCapital > 0 ? ((equity - initialCapital) / initialCapital) * 100 : 0);
-    const drawdownPercent = snapshot?.drawdown_percent ?? 0;
+    const drawdownPercent =
+      ledgerValuation?.portfolio.drawdownPercent ?? snapshot?.drawdown_percent ?? 0;
     const dbPositions = dbPositionsByAgent.get(definition.id) ?? [];
     const positionRows = buildPositionRows(
       dbPositions.map((position) => ({

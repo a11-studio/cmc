@@ -1,6 +1,8 @@
 import "server-only";
 
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
+import { fetchAgentEquityHistoryFromLedger } from "@/lib/agent/equity-history-ledger";
+import { findAgentDefinition } from "@/lib/agents/registry";
 import { isSupabasePersistenceConfigured } from "@/lib/env.server";
 import {
   DEFAULT_TTL_CACHE_MS,
@@ -10,10 +12,10 @@ import {
   ttlCacheKey,
 } from "@/lib/server/ttl-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { filterAgentPortfolioEquityHistoryForDisplay } from "@/lib/agent/portfolio-equity-display";
 import type { EquityCurvePoint } from "@/types/arena";
 
 import { latestEquityHistoryRows } from "@/lib/agent/equity-history-rows";
+import { filterAgentPortfolioEquityHistoryForDisplay } from "@/lib/agent/portfolio-equity-display";
 
 /** Chart history — lightweight rows only (no cycle payloads). */
 export const EQUITY_HISTORY_LIMIT = 120;
@@ -28,17 +30,14 @@ export function invalidateAgentEquityHistoryCache(agentId: string): void {
   invalidateTtlCache(cacheKey(agentId));
 }
 
-async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promise<EquityCurvePoint[]> {
-  if (!isSupabasePersistenceConfigured()) {
-    return [];
-  }
+function initialCapitalFor(agentId: string): number {
+  return findAgentDefinition(agentId)?.initialCapital ?? 10_000;
+}
 
-  const client = createSupabaseAdminClient();
-
-  if (!client) {
-    return [];
-  }
-
+async function fetchStoredPortfolioEquityHistory(
+  client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
+  agentId: string
+): Promise<EquityCurvePoint[]> {
   const { data, error } = await client
     .from("portfolio_snapshots")
     .select("equity, timestamp, cycle_id")
@@ -51,13 +50,6 @@ async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promis
   }
 
   const rows = latestEquityHistoryRows(data ?? [], EQUITY_HISTORY_LIMIT);
-
-  logArenaEgress("equity-history", {
-    agentId,
-    rows: rows.length,
-    approxBytes: approximateJsonBytes(rows),
-    cache: "miss",
-  });
 
   const points = rows.flatMap((row) => {
     const equity = row.equity;
@@ -77,6 +69,47 @@ async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promis
   });
 
   return filterAgentPortfolioEquityHistoryForDisplay(agentId, points);
+}
+
+async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promise<EquityCurvePoint[]> {
+  if (!isSupabasePersistenceConfigured()) {
+    return [];
+  }
+
+  const client = createSupabaseAdminClient();
+
+  if (!client) {
+    return [];
+  }
+
+  const { count, error: tradeCountError } = await client
+    .from("trades")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", agentId);
+
+  if (tradeCountError) {
+    throw new Error(`equity history trade count: ${tradeCountError.message}`);
+  }
+
+  const points =
+    (count ?? 0) > 0
+      ? await fetchAgentEquityHistoryFromLedger(
+          client,
+          agentId,
+          initialCapitalFor(agentId),
+          EQUITY_HISTORY_LIMIT
+        )
+      : await fetchStoredPortfolioEquityHistory(client, agentId);
+
+  logArenaEgress("equity-history", {
+    agentId,
+    rows: points.length,
+    approxBytes: approximateJsonBytes(points),
+    cache: "miss",
+    source: (count ?? 0) > 0 ? "ledger" : "snapshots",
+  });
+
+  return points;
 }
 
 export async function fetchAgentPortfolioEquityHistory(agentId: string): Promise<EquityCurvePoint[]> {

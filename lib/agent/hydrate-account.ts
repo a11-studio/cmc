@@ -3,6 +3,7 @@ import "server-only";
 import { mapTradeRow, unwrapAccountPayload, type PersistedAgentRow } from "@/lib/agent/persist";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
 import { findAgentDefinition } from "@/lib/agents/registry";
+import { replayPaperAccountFromTrades } from "@/lib/paper/engine";
 import { createPaperAccount } from "@/lib/paper/portfolio";
 import type { PaperAccount } from "@/lib/paper/types";
 import type { SupportedSymbol } from "@/lib/market/types";
@@ -65,7 +66,16 @@ export async function loadPaperAccountForDashboard(
   const unwrapped = unwrapAccountPayload(agent.account_payload);
   const { positions, trades } = await loadTradesAndPositions(client, agentId);
 
-  if (trades.length > 0 || positions.length > 0) {
+  if (trades.length > 0) {
+    const initialCapital =
+      unwrapped.account.initialCapital || initialCapitalFor(agentId, MOMENTUM_ALPHA_AGENT.initialCapital);
+
+    return replayPaperAccountFromTrades(initialCapital, trades, {
+      peakEquity: unwrapped.account.peakEquity,
+    });
+  }
+
+  if (positions.length > 0) {
     return {
       initialCapital: unwrapped.account.initialCapital,
       cash: unwrapped.account.cash,
@@ -102,24 +112,3 @@ export async function loadPaperAccountForExecution(
   };
 }
 
-/** If the in-memory account lost positions, keep the normalized table rows from wiping on persist. */
-export async function mergeOpenPositionsFromDatabase(
-  client: SupabaseClient,
-  agentId: string,
-  account: PaperAccount
-): Promise<PaperAccount> {
-  if (account.positions.length > 0) {
-    return account;
-  }
-
-  const { positions } = await loadTradesAndPositions(client, agentId);
-
-  if (positions.length === 0) {
-    return account;
-  }
-
-  return {
-    ...account,
-    positions,
-  };
-}

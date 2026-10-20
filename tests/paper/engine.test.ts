@@ -5,6 +5,7 @@ import {
   executePaperDecision,
   INITIAL_CAPITAL,
   markToMarket,
+  replayPaperAccountFromTrades,
 } from "@/lib/paper";
 import type { TradeDecision } from "@/lib/paper";
 
@@ -610,5 +611,34 @@ describe("paper trading engine", () => {
 
     expect(result.code).toBe("INSUFFICIENT_POSITION");
     expect(result.account.positions).toEqual([]);
+  });
+
+  it("replayPaperAccountFromTrades matches sequential execution", () => {
+    const first = executePaperDecision(
+      createPaperAccount(),
+      decision({ action: "BUY", symbol: "BTC", allocationPercent: 50 }),
+      snapshot({ BTC: 50_000 }, "a")
+    );
+    const second = executePaperDecision(
+      first.ok ? first.account : createPaperAccount(),
+      decision({ action: "SHORT", symbol: "BTC", allocationPercent: 100 }),
+      snapshot({ BTC: 50_000 }, "b")
+    );
+    const third = executePaperDecision(
+      second.ok ? second.account : createPaperAccount(),
+      decision({ action: "BUY", symbol: "BTC", allocationPercent: 50 }),
+      snapshot({ BTC: 50_000 }, "c")
+    );
+
+    expect(third.ok).toBe(true);
+    if (!third.ok) {
+      return;
+    }
+
+    const replayed = replayPaperAccountFromTrades(INITIAL_CAPITAL, third.account.trades);
+
+    expect(replayed.cash).toBeCloseTo(third.account.cash, 6);
+    expect(replayed.positions).toEqual(third.account.positions);
+    expect(replayed.realizedPnl).toBeCloseTo(third.account.realizedPnl, 6);
   });
 });

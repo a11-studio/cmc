@@ -360,3 +360,45 @@ export function executePaperDecision(
     throw error;
   }
 }
+
+function signedQuantityForTrade(trade: Trade): number {
+  if (trade.side === "BUY") {
+    return trade.quantity;
+  }
+
+  if (trade.side === "SELL" || trade.side === "SHORT") {
+    return -trade.quantity;
+  }
+
+  return 0;
+}
+
+/** Rebuild cash and open positions from the normalized trades ledger (source of truth). */
+export function replayPaperAccountFromTrades(
+  initialCapital: number,
+  trades: readonly Trade[],
+  options: { peakEquity?: number } = {}
+): PaperAccount {
+  let cash = initialCapital;
+  let realizedPnl = 0;
+  let positions: OpenPosition[] = [];
+
+  for (const trade of trades) {
+    const signedQuantity = signedQuantityForTrade(trade);
+    const existing = findPosition(positions, trade.symbol);
+    const fill = applySignedFill(existing, signedQuantity, trade.price, trade.symbol);
+
+    cash -= signedQuantity * trade.price;
+    realizedPnl += fill.realizedPnl;
+    positions = replacePosition(positions, fill.next);
+  }
+
+  return {
+    initialCapital,
+    cash,
+    peakEquity: options.peakEquity ?? initialCapital,
+    realizedPnl,
+    positions,
+    trades: [...trades],
+  };
+}

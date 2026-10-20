@@ -7,7 +7,6 @@ import { invalidateDashboardLiteCache } from "@/lib/arena/dashboard-lite-cache";
 import { invalidateAgentEquityHistoryCache } from "@/lib/agent/equity-history";
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
 import { loadPaperAccountForDashboard, loadPaperAccountForExecution } from "@/lib/agent/hydrate-account";
-import { mergeOpenPositionsFromDatabase } from "@/lib/agent/hydrate-account";
 import {
   attachMarketSnapshotIfMissing,
   createStoreFromPersistedState,
@@ -224,7 +223,6 @@ export async function persistAgentStore(agentId: string, store: AgentCycleStore)
   }
 
   const state = snapshotPersistedState(store, new Date(), agentId);
-  state.account = await mergeOpenPositionsFromDatabase(client, agentId, state.account);
   await persistArenaState(createSupabaseArenaWriter(client), state);
   invalidateAgentHydrateCache(agentId);
 }
