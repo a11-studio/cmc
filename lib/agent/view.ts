@@ -5,6 +5,7 @@ import { findAgentDefinition } from "@/lib/agents/registry";
 import { formatUsd } from "@/lib/format";
 import { ASSET_CATALOG } from "@/lib/market/symbols";
 import type { AssetSnapshot, MarketSnapshot } from "@/lib/market/types";
+import { cashAllocationPercent } from "@/lib/paper/allocation";
 import { markToMarket } from "@/lib/paper/portfolio";
 import type { PaperAccount, PaperValuation, Trade } from "@/lib/paper/types";
 import type { RiskVerdict } from "@/lib/risk/types";
@@ -503,7 +504,7 @@ export function buildAgentView(
   const cycles = store.listCycles();
   const valuation = resolveValuation(account, cycles);
   const { portfolio, positions } = valuation;
-  const cashAllocationPercent = portfolio.equity === 0 ? 100 : (portfolio.cash / portfolio.equity) * 100;
+  const cashAllocationPercentValue = cashAllocationPercent(portfolio.equity, positions);
   const serialized = cycles.map(serializeCycle);
   const decisions = cycles
     .map(cycleToDecisionRecord)
@@ -549,7 +550,7 @@ export function buildAgentView(
   return {
     agent,
     cash: portfolio.cash,
-    cashAllocationPercent,
+    cashAllocationPercent: cashAllocationPercentValue,
     realizedPnl: portfolio.realizedPnl,
     unrealizedPnl: portfolio.unrealizedPnl,
     dayStartEquity: store.getDayStartEquity(new Date()),

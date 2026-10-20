@@ -1,6 +1,7 @@
 import { buildAllocationSlices } from "@/components/arena/agent-allocation-card";
 import type { DashboardLite, DashboardLiteAgent } from "@/lib/arena/dashboard-lite-types";
 import type { MomentumAlphaView } from "@/lib/agent/view";
+import { cashAllocationPercent } from "@/lib/paper/allocation";
 import type { PositionRow } from "@/types/arena";
 
 export function allocationBooksFromDashboardLite(
@@ -31,7 +32,7 @@ function liteAgentToAllocationBook(agent: DashboardLiteAgent, positions: Positio
       runtimeStatus: agent.runtimeStatus,
     },
     cash: agent.cash,
-    cashAllocationPercent: agent.equity > 0 ? (agent.cash / agent.equity) * 100 : 100,
+    cashAllocationPercent: cashAllocationPercent(agent.equity, positions),
     realizedPnl: 0,
     unrealizedPnl: 0,
     dayStartEquity: agent.initialCapital,

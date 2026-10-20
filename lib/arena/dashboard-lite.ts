@@ -129,12 +129,18 @@ async function fetchEquitySeriesByAgent(
     };
   });
 
-  const fromLedger = await fetchEquitySeriesFromLedgerByAgent(
-    client,
-    agentConfigs,
-    EQUITY_HISTORY_LIMIT,
-    ledgerTradesByAgent
-  );
+  let fromLedger: Record<string, EquityCurvePoint[]> = {};
+
+  try {
+    fromLedger = await fetchEquitySeriesFromLedgerByAgent(
+      client,
+      agentConfigs,
+      EQUITY_HISTORY_LIMIT,
+      ledgerTradesByAgent
+    );
+  } catch (error) {
+    console.warn("dashboard-lite equity ledger failed; using stored snapshots", error);
+  }
   const stored = await fetchStoredEquitySeriesByAgent(
     client,
     agentConfigs.map((agent) => agent.id)
@@ -378,15 +384,20 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
     const drawdownPercent =
       ledgerValuation?.portfolio.drawdownPercent ?? snapshot?.drawdown_percent ?? 0;
     const dbPositions = dbPositionsByAgent.get(definition.id) ?? [];
-    const positionRows = buildPositionRows(
-      dbPositions.map((position) => ({
-        symbol: position.symbol,
-        quantity: position.quantity,
-        averageEntryPrice: position.average_entry_price,
-      })),
-      priceMap,
-      equity
-    );
+    const positionRows =
+      ledgerValuation != null
+        ? [...ledgerValuation.positions].sort(
+            (left, right) => Math.abs(right.marketValue) - Math.abs(left.marketValue)
+          )
+        : buildPositionRows(
+            dbPositions.map((position) => ({
+              symbol: position.symbol,
+              quantity: position.quantity,
+              averageEntryPrice: position.average_entry_price,
+            })),
+            priceMap,
+            equity
+          );
     positionsByAgent[definition.id] = positionRows;
     const coinsDeployed = positionRows.reduce((sum, position) => sum + Math.abs(position.marketValue), 0);
     const storeStatus = mapAgentRiskStatus(row?.status ?? null);

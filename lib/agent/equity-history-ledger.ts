@@ -20,6 +20,33 @@ type LedgerAgentConfig = {
 
 type TradeRowDb = Parameters<typeof mapTradeRow>[0] & { agent_id: string };
 
+const MARKET_SNAPSHOT_CHUNK_SIZE = 80;
+/** Cap JSONB payload fetches per request (Supabase statement timeout). */
+const MARKET_SNAPSHOT_FETCH_CAP = 200;
+
+function cycleNumberFromId(cycleId: string): number {
+  const suffix = cycleId.split("-").pop() ?? "";
+  const parsed = Number.parseInt(suffix, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+const marketSnapshotCache = new Map<string, MarketSnapshot>();
+
+function rememberMarketSnapshots(snapshots: Map<string, MarketSnapshot>) {
+  for (const [cycleId, snapshot] of snapshots) {
+    marketSnapshotCache.set(cycleId, snapshot);
+  }
+
+  while (marketSnapshotCache.size > 4_000) {
+    const oldest = marketSnapshotCache.keys().next().value;
+
+    if (oldest === undefined) {
+      break;
+    }
+
+    marketSnapshotCache.delete(oldest);
+  }
+}
+
 export function groupLedgerTradesByAgent(rows: readonly TradeRowDb[]): Map<string, Trade[]> {
   const grouped = new Map<string, Trade[]>();
 
@@ -47,31 +74,47 @@ async function fetchMarketSnapshotsByCycleId(
     return new Map();
   }
 
-  const { data, error } = await client
-    .from("market_snapshots")
-    .select("cycle_id, payload")
-    .in("cycle_id", unique);
+  const map = new Map<string, MarketSnapshot>();
+  const missing: string[] = [];
 
-  if (error) {
-    throw new Error(`equity ledger market snapshots: ${error.message}`);
+  for (const cycleId of unique) {
+    const cached = marketSnapshotCache.get(cycleId);
+
+    if (cached) {
+      map.set(cycleId, cached);
+    } else {
+      missing.push(cycleId);
+    }
   }
 
-  const map = new Map<string, MarketSnapshot>();
+  for (let offset = 0; offset < missing.length; offset += MARKET_SNAPSHOT_CHUNK_SIZE) {
+    const chunk = missing.slice(offset, offset + MARKET_SNAPSHOT_CHUNK_SIZE);
+    const { data, error } = await client
+      .from("market_snapshots")
+      .select("cycle_id, payload")
+      .in("cycle_id", chunk);
 
-  for (const row of data ?? []) {
-    const cycleId = typeof row.cycle_id === "string" ? row.cycle_id : "";
-
-    if (!cycleId) {
+    if (error) {
+      console.warn(`equity ledger market snapshots chunk failed: ${error.message}`);
       continue;
     }
 
-    const parsed = parseMarketSnapshotPayload(cycleId, row.payload);
+    for (const row of data ?? []) {
+      const cycleId = typeof row.cycle_id === "string" ? row.cycle_id : "";
 
-    if (parsed) {
-      map.set(cycleId, parsed);
+      if (!cycleId) {
+        continue;
+      }
+
+      const parsed = parseMarketSnapshotPayload(cycleId, row.payload);
+
+      if (parsed) {
+        map.set(cycleId, parsed);
+      }
     }
   }
 
+  rememberMarketSnapshots(map);
   return map;
 }
 
@@ -126,9 +169,15 @@ export async function fetchEquitySeriesFromLedgerByAgent(
     })
   );
 
-  const allCycleIds = snapshotRowsByAgent.flatMap(({ rows }) =>
-    anchorsFromPortfolioSnapshotRows(rows, limit).map((anchor) => anchor.cycleId)
-  );
+  const allCycleIds = [
+    ...new Set(
+      snapshotRowsByAgent.flatMap(({ rows }) =>
+        anchorsFromPortfolioSnapshotRows(rows, limit).map((anchor) => anchor.cycleId)
+      )
+    ),
+  ]
+    .sort((left, right) => cycleNumberFromId(right) - cycleNumberFromId(left))
+    .slice(0, MARKET_SNAPSHOT_FETCH_CAP);
   const snapshotByCycleId = await fetchMarketSnapshotsByCycleId(client, allCycleIds);
 
   for (const { agentId, rows } of snapshotRowsByAgent) {

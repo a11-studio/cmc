@@ -3,6 +3,7 @@ import { CompositionTrack } from "@/components/arena/composition-bar";
 import { DataSourceBadge } from "@/components/shared/data-source-badge";
 import { formatPercent } from "@/lib/format";
 import { TEAL, type RankedShare } from "@/lib/market/shares";
+import { unallocatedCashFromEquity } from "@/lib/paper/allocation";
 import type { MomentumAlphaView } from "@/lib/agent/view";
 
 type AllocationSlice = RankedShare & { sample: boolean };
@@ -27,7 +28,10 @@ export function buildAllocationSlices(books: MomentumAlphaView[]): AllocationSli
     };
   });
 
-  const cash = books.reduce((sum, book) => sum + book.cash, 0);
+  const cash = books.reduce(
+    (sum, book) => sum + unallocatedCashFromEquity(book.agent.equity, book.positions),
+    0
+  );
   const deployed = slices.filter((slice) => slice.percent >= 0.05);
   const colored = deployed.map((slice, index) => ({
     ...slice,

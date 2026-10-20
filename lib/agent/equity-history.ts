@@ -91,22 +91,34 @@ async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promis
     throw new Error(`equity history trade count: ${tradeCountError.message}`);
   }
 
-  const points =
-    (count ?? 0) > 0
-      ? await fetchAgentEquityHistoryFromLedger(
-          client,
-          agentId,
-          initialCapitalFor(agentId),
-          EQUITY_HISTORY_LIMIT
-        )
-      : await fetchStoredPortfolioEquityHistory(client, agentId);
+  let source: "ledger" | "snapshots" = "snapshots";
+  let points: EquityCurvePoint[] = [];
+
+  if ((count ?? 0) > 0) {
+    try {
+      points = await fetchAgentEquityHistoryFromLedger(
+        client,
+        agentId,
+        initialCapitalFor(agentId),
+        EQUITY_HISTORY_LIMIT
+      );
+      source = points.length > 0 ? "ledger" : "snapshots";
+    } catch (error) {
+      console.warn(`equity ledger history failed for ${agentId}`, error);
+    }
+  }
+
+  if (points.length === 0) {
+    points = await fetchStoredPortfolioEquityHistory(client, agentId);
+    source = "snapshots";
+  }
 
   logArenaEgress("equity-history", {
     agentId,
     rows: points.length,
     approxBytes: approximateJsonBytes(points),
     cache: "miss",
-    source: (count ?? 0) > 0 ? "ledger" : "snapshots",
+    source,
   });
 
   return points;

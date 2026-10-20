@@ -27,11 +27,16 @@ export async function resolveArenaHomeData(): Promise<ArenaHomeData> {
     }
   }
 
-  const legacy = await getArenaDashboard();
-  return {
-    mode: "lite",
-    lite: dashboardLiteFromLegacyViews(legacy.books, legacy.persistenceMode, legacy.paused),
-  };
+  try {
+    const legacy = await getArenaDashboard();
+    return {
+      mode: "lite",
+      lite: dashboardLiteFromLegacyViews(legacy.books, legacy.persistenceMode, legacy.paused),
+    };
+  } catch (error) {
+    console.error("getArenaDashboard fallback failed", error);
+    throw error;
+  }
 }
 
 export function legacyBooks(data: ArenaHomeData): MomentumAlphaView[] | undefined {
