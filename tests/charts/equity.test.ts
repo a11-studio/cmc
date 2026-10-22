@@ -4,6 +4,8 @@ import {
   equityChange,
   equityIndexAtSvgX,
   equitySeriesWithLiveTail,
+  equitySparklineYDomain,
+  equityToPlotY,
   nearestEquityIndex,
   normalizeEquityPoints,
 } from "@/lib/charts/equity";
@@ -37,6 +39,20 @@ describe("equity chart helpers", () => {
   it("computes change versus start", () => {
     expect(equityChange(11_000, 10_000)).toEqual({ amount: 1_000, percent: 10 });
     expect(equityChange(9_500, 10_000)).toEqual({ amount: -500, percent: -5 });
+  });
+
+  it("includes starting capital in sparkline Y domain so baseline stays in view", () => {
+    const domain = equitySparklineYDomain([62_000, 68_000, 69_500], 70_000);
+
+    expect(domain.min).toBeLessThanOrEqual(70_000);
+    expect(domain.max).toBeGreaterThanOrEqual(70_000);
+
+    const inner = 100;
+    const pad = 10;
+    const baselineY = equityToPlotY(70_000, domain, inner, pad);
+
+    expect(baselineY).toBeGreaterThan(pad);
+    expect(baselineY).toBeLessThan(pad + inner);
   });
 
   it("appends a live tail when headline equity diverges from history", () => {

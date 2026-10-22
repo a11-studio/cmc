@@ -36,6 +36,43 @@ export function equityChange(current: number, baseline: number) {
   return { amount, percent };
 }
 
+/** Y-axis domain for sparklines — always includes reference (e.g. starting capital) so the baseline line stays in scale. */
+export function equitySparklineYDomain(
+  equities: readonly number[],
+  referenceEquity?: number
+): { min: number; max: number } {
+  if (equities.length === 0) {
+    const anchor = referenceEquity ?? 0;
+    return { min: anchor, max: anchor + 1 };
+  }
+
+  let min = Math.min(...equities);
+  let max = Math.max(...equities);
+
+  if (referenceEquity != null && Number.isFinite(referenceEquity)) {
+    min = Math.min(min, referenceEquity);
+    max = Math.max(max, referenceEquity);
+  }
+
+  if (max === min) {
+    max = min + 1;
+  }
+
+  const pad = (max - min) * 0.04;
+
+  return { min: min - pad, max: max + pad };
+}
+
+export function equityToPlotY(
+  equity: number,
+  domain: { min: number; max: number },
+  innerHeight: number,
+  padY: number
+): number {
+  const range = domain.max - domain.min || 1;
+  return padY + innerHeight - ((equity - domain.min) / range) * innerHeight;
+}
+
 const LIVE_TAIL_STALE_MS = 2 * 60 * 60 * 1000;
 const LIVE_TAIL_BRIDGE_STEP_MS = 60 * 60 * 1000;
 const LIVE_TAIL_MAX_BRIDGE_STEPS = 12;

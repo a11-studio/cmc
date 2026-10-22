@@ -8,6 +8,8 @@ import { TickerPhrase } from "@/components/market/asset-icon";
 import {
   equityChange,
   equityIndexAtSvgX,
+  equitySparklineYDomain,
+  equityToPlotY,
   normalizeEquityPoints,
   type EquityChartPoint,
 } from "@/lib/charts/equity";
@@ -69,12 +71,11 @@ export function EquitySparkline({
   }
 
   const equities = series.map((point) => point.equity);
-  const min = Math.min(...equities);
-  const max = Math.max(...equities);
+  const baseline = referenceEquity ?? series[0]!.equity;
+  const { min, max } = equitySparklineYDomain(equities, referenceEquity);
   const range = max - min || 1;
   const innerWidth = Math.max(plotWidth - PAD_X * 2, 1);
   const innerHeight = plotHeight - PAD_Y * 2;
-  const baseline = referenceEquity ?? series[0]!.equity;
   const latest = series.at(-1)!;
   const active = series[activeIndex ?? series.length - 1]!;
   const positive = trendPositive ?? latest.equity >= baseline;
@@ -84,7 +85,7 @@ export function EquitySparkline({
 
   const coords = series.map((point, index) => {
     const x = PAD_X + (index / (series.length - 1)) * innerWidth;
-    const y = PAD_Y + innerHeight - ((point.equity - min) / range) * innerHeight;
+    const y = equityToPlotY(point.equity, { min, max }, innerHeight, PAD_Y);
     return { x, y };
   });
 
@@ -93,7 +94,7 @@ export function EquitySparkline({
   const ticks = [max, min + range / 2, min];
   const activeCoord = coords[activeIndex ?? coords.length - 1]!;
   const latestCoord = coords.at(-1)!;
-  const baselineY = PAD_Y + innerHeight - ((baseline - min) / range) * innerHeight;
+  const baselineY = equityToPlotY(baseline, { min, max }, innerHeight, PAD_Y);
   const tooltipLeft = Math.min(Math.max((activeCoord.x / plotWidth) * 100, 18), 72);
 
   function setFromClientX(clientX: number) {
