@@ -38,6 +38,8 @@ export type AssetTrend = {
   low10?: number;
   high20?: number;
   low20?: number;
+  high30?: number;
+  low30?: number;
   high55?: number;
   low55?: number;
   atr20?: number;

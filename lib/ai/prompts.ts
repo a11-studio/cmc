@@ -136,7 +136,7 @@ The input carries a headroom object describing what the Risk Engine will actuall
 DAILY TREND DATA:
 Each asset may carry a trend object computed from completed daily candles (today's partial day excluded):
 - sma50, sma100, sma200: daily simple moving averages of the close.
-- high10/low10, high20/low20, high55/low55: highest high and lowest low of the previous N completed days. price > high20 is a real 20-day breakout; price < low20 a real 20-day breakdown.
+- high10/low10, high20/low20, high30/low30, high55/low55: highest high and lowest low of the previous N completed days. price > high20 is a real 20-day breakout; price < low20 a real 20-day breakdown.
 - atr20 / atr20Percent: average true range over 20 days, in price and as percent of price.
 - return30dPercent, volatility30dPercent (stdev of daily returns), priceVsSma50Percent, priceVsSma200Percent.
 These are real computed values. Use them for breakouts, channels, stops, and regime. If an asset has no trend object, its trend is unknown.

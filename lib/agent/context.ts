@@ -6,6 +6,7 @@ export function toDecisionPortfolio(valuation: PaperValuation): DecisionPortfoli
   return {
     cash: valuation.portfolio.cash,
     equity: valuation.portfolio.equity,
+    drawdownPercent: valuation.portfolio.drawdownPercent,
     positions: valuation.positions.map((position) => ({
       symbol: position.symbol,
       quantity: position.quantity,

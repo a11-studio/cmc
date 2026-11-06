@@ -70,6 +70,13 @@ function signedAllocationPercent(existing: RiskPosition | undefined): number {
   return existing.allocationPercent;
 }
 
+function grossExposurePercent(positions: readonly RiskPosition[]): number {
+  return positions.reduce(
+    (sum, position) => (isClosedQuantity(position.quantity) ? sum : sum + Math.abs(position.allocationPercent)),
+    0
+  );
+}
+
 function dailyLossPercent(portfolio: RiskInput["portfolio"]): number {
   if (!(portfolio.dayStartEquity > 0)) {
     return 0;
@@ -226,17 +233,9 @@ export function evaluateRisk(input: RiskInput): RiskResult {
 
   checks.push(passed("DAILY_LOSS_LIMIT", `Daily loss ${lossToday.toFixed(2)}% is inside the limit`));
 
-  if (riskIncreasing && portfolio.drawdownPercent >= constraints.maxDrawdownPercent - PERCENT_EPSILON) {
-    checks.push(
-      failed(
-        "DRAWDOWN_LIMIT",
-        `Drawdown ${portfolio.drawdownPercent.toFixed(2)}% has reached ${constraints.maxDrawdownPercent}%`
-      )
-    );
-    return blocked(decision, "DRAWDOWN_LIMIT", "Rejected: maximum drawdown reached", checks);
+  if (portfolio.drawdownPercent < constraints.maxDrawdownPercent - PERCENT_EPSILON) {
+    checks.push(passed("DRAWDOWN_LIMIT", `Drawdown ${portfolio.drawdownPercent.toFixed(2)}% is inside the limit`));
   }
-
-  checks.push(passed("DRAWDOWN_LIMIT", `Drawdown ${portfolio.drawdownPercent.toFixed(2)}% is inside the limit`));
 
   if (action === "SELL") {
     if (!existing || isClosedQuantity(existing.quantity)) {
@@ -287,6 +286,8 @@ export function evaluateRisk(input: RiskInput): RiskResult {
           signedAllocationPercent: signedAlloc,
           constraints,
           trendRegime: trendRegime(snapshot, symbol, constraints.trendFilterSma),
+          drawdownPercent: portfolio.drawdownPercent,
+          grossExposurePercent: grossExposurePercent(portfolio.positions),
         })
       : [
           ...closingAllocationCaps({
@@ -331,7 +332,9 @@ export function evaluateRisk(input: RiskInput): RiskResult {
               ? "Rejected: leverage is not allowed"
               : limiting === "TREND_FILTER"
                 ? `Rejected: trend filter. ${limitingDetail}`
-                : `Rejected: ${limitingDetail}`;
+                : limiting === "DRAWDOWN_LIMIT"
+                  ? `Rejected: maximum drawdown reached. ${limitingDetail}`
+                  : `Rejected: ${limitingDetail}`;
 
     return blocked(decision, limiting, reason, checks);
   }

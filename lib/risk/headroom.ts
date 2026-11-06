@@ -22,6 +22,8 @@ export type HeadroomPortfolio = {
   cash: number;
   equity: number;
   positions: readonly HeadroomPosition[];
+  /** Drawdown from peak equity in percent; past the limit, new exposure is capped. */
+  drawdownPercent?: number;
 };
 
 export type SymbolHeadroom = {
@@ -73,6 +75,11 @@ export function computeTradingHeadroom(input: {
   const atPositionLimit = openPositions >= constraints.maxOpenPositions;
 
   const trendNotes: string[] = [];
+  const drawdownPercent = input.portfolio.drawdownPercent ?? 0;
+  const grossExposurePercent = positions.reduce(
+    (sum, position) => (isClosedQuantity(position.quantity) ? sum : sum + Math.abs(position.allocationPercent)),
+    0
+  );
 
   const perSymbol = input.symbols.map((symbol) => {
     const regime = input.snapshot ? trendRegime(input.snapshot, symbol, constraints.trendFilterSma) : undefined;
@@ -91,6 +98,8 @@ export function computeTradingHeadroom(input: {
             signedAllocationPercent,
             constraints,
             trendRegime: regime,
+            drawdownPercent,
+            grossExposurePercent,
           })
         );
 
@@ -105,6 +114,8 @@ export function computeTradingHeadroom(input: {
               signedAllocationPercent,
               constraints,
               trendRegime: regime,
+              drawdownPercent,
+              grossExposurePercent,
             })
           );
 
@@ -176,6 +187,12 @@ export function computeTradingHeadroom(input: {
   if (hasShort) {
     notes.push(
       "Open shorts can be reduced with SELL (percent of the short position) or BUY (percent of equity to spend). SELL does not apply to symbols you are not short."
+    );
+  }
+
+  if (drawdownPercent >= constraints.maxDrawdownPercent) {
+    notes.push(
+      `Drawdown is ${round(drawdownPercent)}%, past the ${constraints.maxDrawdownPercent}% limit: de-risk mode keeps gross exposure at or below ${constraints.drawdownExposureCapPercent}% of equity.`
     );
   }
 

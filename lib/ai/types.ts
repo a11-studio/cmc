@@ -14,6 +14,7 @@ export type DecisionPositionContext = {
 export type DecisionPortfolioContext = {
   cash: number;
   equity: number;
+  drawdownPercent?: number;
   positions: readonly DecisionPositionContext[];
 };
 
@@ -35,6 +36,16 @@ export type DecisionContext = {
   portfolio: DecisionPortfolioContext;
   headroom?: TradingHeadroom;
   floorChat?: readonly DecisionFloorMessage[];
+  /** Present when a deterministic rule core proposed this cycle's trade and the model only reviews it. */
+  ruleProposal?: DecisionRuleProposal;
+};
+
+export type DecisionRuleProposal = {
+  decision: TradeDecision;
+  basis: readonly string[];
+  instruction: string;
+  /** False for exits and trims: the model may comment but not block them. */
+  vetoAllowed: boolean;
 };
 
 export type GeminiGenerateContentRequest = {

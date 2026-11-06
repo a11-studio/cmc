@@ -114,6 +114,7 @@ export function computeAssetTrend(input: {
   const sma200 = sma(candles, 200);
   const c10 = channel(candles, 10);
   const c20 = channel(candles, 20);
+  const c30 = channel(candles, 30);
   const c55 = channel(candles, 55);
   const atr20 = atr(candles, 20);
   const close30Ago = candles.length > 30 ? candles[candles.length - 31].close : undefined;
@@ -138,6 +139,8 @@ export function computeAssetTrend(input: {
   assign("low10", c10.low, pricePlaces);
   assign("high20", c20.high, pricePlaces);
   assign("low20", c20.low, pricePlaces);
+  assign("high30", c30.high, pricePlaces);
+  assign("low30", c30.low, pricePlaces);
   assign("high55", c55.high, pricePlaces);
   assign("low55", c55.low, pricePlaces);
   assign("atr20", atr20, pricePlaces);

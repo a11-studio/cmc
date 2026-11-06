@@ -254,6 +254,7 @@ export async function generateTradeDecision(
     snapshot,
     portfolio,
     ...(context.headroom ? { headroom: cloneJson(context.headroom) } : {}),
+    ...(context.ruleProposal ? { ruleProposal: cloneJson(context.ruleProposal) } : {}),
   };
 
   let response: { text?: string | null };

@@ -382,22 +382,25 @@ describe("Risk Engine blocks", () => {
     expect(short.code).toBe("DAILY_LOSS_LIMIT");
   });
 
-  it("blocks a BUY after the 15% drawdown limit", () => {
-    const result = evaluateRisk(
-      input({
-        decision: decision({ allocationPercent: 8 }),
-        portfolio: portfolio({
-          cash: 8_500,
-          equity: 8_500,
-          drawdownPercent: 15,
-          dayStartEquity: 8_500,
-        }),
-      })
-    );
+  it("past the 15% drawdown limit only allows exposure up to the de-risk cap", () => {
+    const deRisk = (positions: RiskPortfolioState["positions"], allocationPercent: number) =>
+      evaluateRisk(
+        input({
+          decision: decision({ allocationPercent }),
+          portfolio: portfolio({ cash: 8_500, equity: 8_500, drawdownPercent: 15, dayStartEquity: 8_500, positions }),
+        })
+      );
 
-    expect(result.verdict).toBe("BLOCKED");
-    expect(result.code).toBe("DRAWDOWN_LIMIT");
-    expect(result.reason).toBe("Rejected: maximum drawdown reached");
+    const flat = deRisk([], 8);
+    const nearCap = deRisk([{ symbol: "BTC", quantity: 0.038, marketValue: 3_825, allocationPercent: 45 }], 12);
+    const atCap = deRisk([{ symbol: "BTC", quantity: 0.042, marketValue: 4_250, allocationPercent: 50 }], 8);
+
+    expect(flat.verdict).toBe("APPROVED");
+    expect(nearCap.verdict).toBe("CONSTRAINED");
+    expect(nearCap.adjustedAllocationPercent).toBe(5);
+    expect(atCap.verdict).toBe("BLOCKED");
+    expect(atCap.code).toBe("DRAWDOWN_LIMIT");
+    expect(atCap.reason).toContain("Rejected: maximum drawdown reached");
   });
 
   it("blocks BUY and SELL when the agent is paused, but still allows HOLD", () => {

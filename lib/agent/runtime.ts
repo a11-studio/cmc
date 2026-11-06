@@ -19,6 +19,7 @@ import { createMarketDataProvider } from "@/lib/market/provider";
 import { executePaperDecision } from "@/lib/paper/engine";
 import { createPaperAccount } from "@/lib/paper/portfolio";
 import { evaluateRisk } from "@/lib/risk/evaluate";
+import { decideWithRuleCore } from "@/lib/strategies/rule-core";
 
 const memoryStores = new Map<string, AgentCycleStore>();
 const evaluationStores = new Map<string, AgentCycleStore>();
@@ -65,7 +66,9 @@ function cycleDependencies(store: AgentCycleStore): AgentCycleDependencies {
       return floorChatForAgent(agentId, recent);
     },
     async generateTradeDecision(context) {
-      return createGeminiDecisionEngine().generateTradeDecision(context);
+      const engine = createGeminiDecisionEngine();
+      const ruled = await decideWithRuleCore(context, (reviewContext) => engine.generateTradeDecision(reviewContext));
+      return ruled ? ruled.decision : engine.generateTradeDecision(context);
     },
     evaluateRisk,
     executePaperDecision,

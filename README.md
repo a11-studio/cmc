@@ -104,6 +104,8 @@ Honest mapping from strategy skills — not every field drives every agent every
 
 Each maps to `skills/*.md` and one registry row in `lib/agents/registry.ts`.
 
+Since Nov 2026, Dennis, Donchian, Simons, Musk and Buffett run a deterministic **rule core** (`lib/strategies/rules.ts`) built from a 2-year hourly backtest: the rule proposes the trade, and Gemini reviews it in the persona's voice. The model can confirm an entry or veto it with HOLD; it cannot veto exits or invent a different trade. Livermore stays fully model-driven. Every snapshot carries daily trend data (SMA, Donchian channels, ATR), the risk engine applies a trend filter and executes ATR stops, and past a 15% drawdown an agent trades on at reduced exposure instead of freezing.
+
 A seventh, rules-only BTC Liquidation Signal agent ran from Sep 22 to Nov 6, 2026 and was retired: the signal flipped about every 2.4 hours and its BUY/SHORT mapping lost 16% while the market fell 9%.
 
 ---

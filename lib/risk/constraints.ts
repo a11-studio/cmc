@@ -4,6 +4,14 @@ export const DEFAULT_RISK_CONSTRAINTS = {
   minCashPercent: 0,
   maxDailyLossPercent: 5,
   maxDrawdownPercent: 15,
+  /**
+   * Past maxDrawdownPercent the agent keeps trading in de-risk mode: new exposure is
+   * allowed only while gross exposure stays at or below this percent of equity.
+   * A hard block never lifts (the peak is all-time), so it froze every strategy
+   * for good after its first normal 15% drawdown in the 2025–26 replay. 50% beat
+   * 30% on both return and drawdown for the trend followers in that replay.
+   */
+  drawdownExposureCapPercent: 50 as number,
   maxOpenPositions: 3,
   leverage: false as const,
   shorting: true,

@@ -25,6 +25,10 @@ export function openingAllocationCaps(input: {
   constraints: RiskConstraints;
   /** Trend regime for the symbol under constraints.trendFilterSma; undefined means no filter. */
   trendRegime?: TrendRegime;
+  /** Current drawdown from peak equity, in percent. */
+  drawdownPercent?: number;
+  /** Sum of |allocationPercent| over open positions. */
+  grossExposurePercent?: number;
 }): AllocationCap[] {
   const { action, symbol, cashPercent, signedAllocationPercent, constraints, trendRegime } = input;
 
@@ -59,6 +63,18 @@ export function openingAllocationCaps(input: {
       code: "LEVERAGE_FORBIDDEN",
       max: cashPercent,
       detail: "Spending more than cash would require leverage",
+    });
+  }
+
+  if ((input.drawdownPercent ?? 0) >= constraints.maxDrawdownPercent - 1e-8) {
+    // The part of the trade that closes the opposite side is not new exposure.
+    const reducing = action === "BUY" ? Math.max(0, -signedAllocationPercent) : Math.max(0, signedAllocationPercent);
+    const room = Math.max(0, constraints.drawdownExposureCapPercent - (input.grossExposurePercent ?? 0));
+
+    caps.push({
+      code: "DRAWDOWN_LIMIT",
+      max: reducing + room,
+      detail: `Drawdown ${roundReasonPercent(input.drawdownPercent ?? 0)}% is past ${constraints.maxDrawdownPercent}%: gross exposure capped at ${constraints.drawdownExposureCapPercent}% of equity`,
     });
   }
 
