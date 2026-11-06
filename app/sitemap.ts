@@ -9,6 +9,7 @@ const INDEXABLE_PAGES: Array<keyof typeof PAGE_SEO> = [
   "chat",
   "research",
   "winners",
+  "rules",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

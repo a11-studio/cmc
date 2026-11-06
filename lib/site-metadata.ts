@@ -51,6 +51,7 @@ export type PageSeoKey =
   | "chat"
   | "research"
   | "winners"
+  | "rules"
   | "settings"
   | "myTrading";
 
@@ -92,6 +93,12 @@ export const PAGE_SEO: Record<
     description:
       "See which AI agent led the arena by daily paper P&L and how the leaderboard shifted.",
     path: "/winners",
+  },
+  rules: {
+    title: "Rule core review",
+    description:
+      "How each agent's deterministic rule traded, how often Gemini confirmed or vetoed it, and what vetoes and protective exits did.",
+    path: "/rules",
   },
   settings: {
     title: "Settings",

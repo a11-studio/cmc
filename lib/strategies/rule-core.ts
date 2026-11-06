@@ -121,3 +121,21 @@ export async function decideWithRuleCore(
     decision: { ...proposed, reasons: withLabel(proposal.basis, "LLM_DEVIATED") },
   };
 }
+
+const OUTCOME_BY_LABEL = new Map<string, RuleReviewOutcome>(
+  (["RULE_ONLY", "CONFIRMED", "VETOED", "LLM_UNAVAILABLE", "LLM_DEVIATED"] as const).map((outcome) => [label(outcome), outcome])
+);
+
+/** Reads the outcome label that decideWithRuleCore writes as the first reason; null for model-only decisions. */
+export function parseRuleCoreOutcome(reasons: readonly string[] | null | undefined): RuleReviewOutcome | null {
+  const first = reasons?.[0];
+  return first ? OUTCOME_BY_LABEL.get(first) ?? null : null;
+}
+
+export type VetoedProposal = { action: "BUY" | "SHORT"; symbol: string; allocationPercent: number };
+
+/** Reads the "Vetoed: BUY SOL 15%" reason written for a vetoed entry. */
+export function parseVetoedProposal(reasons: readonly string[] | null | undefined): VetoedProposal | null {
+  const match = reasons?.[1]?.match(/^Vetoed: (BUY|SHORT) ([A-Z]+) ([\d.]+)%$/);
+  return match ? { action: match[1] as VetoedProposal["action"], symbol: match[2], allocationPercent: Number(match[3]) } : null;
+}
