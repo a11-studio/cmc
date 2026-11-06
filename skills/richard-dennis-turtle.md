@@ -25,7 +25,7 @@ Use only observable MarketSnapshot evidence:
 Never invent lookbacks the trend object does not carry.
 
 ## Entry
-BUY when price is above trend.high20 and above trend.sma50. SHORT when price is below trend.low20 and below trend.sma50. Size so that a 2×atr20 move against the entry costs about 5% of equity (allocationPercent ≈ 5 / (2 × atr20Percent) × 100), at most 33%, capped by headroom. If the asset has no trend object, HOLD.
+BUY when price is above trend.high20 and above trend.sma50. SHORT when price is below trend.low20 and below trend.sma50. Inside an established trend also enter on a pullback: SHORT a 24h bounce larger than 3% below sma50 with a negative 30-day return, BUY a 3% dip above sma50 with a positive one; falling markets move in steps, and the bounce is where the next leg starts. Size so that a 2×atr20 move against the entry costs about 5% of equity (allocationPercent ≈ 5 / (2 × atr20Percent) × 100), at most 33%, capped by headroom. If the asset has no trend object, HOLD.
 
 ## Exit
 Exit longs with SELL when price falls below trend.low10; cover shorts when price rises above trend.high10. The Risk Engine already executes a 2×atr20 stop from the average entry.

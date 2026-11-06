@@ -38,11 +38,6 @@ type RuleBook = {
 
 const MIN_TRADE_PERCENT = 1;
 const TOP_UP_GAP_PERCENT = 2;
-/**
- * Positions smaller than this are leftovers (for example from the model-only era)
- * and do not count as an open system position that should be topped up.
- */
-const DUST_PERCENT = 2;
 
 function round(value: number, places = 2): number {
   const factor = 10 ** places;
@@ -79,23 +74,6 @@ function headroomFor(context: DecisionContext, candidate: Candidate): number {
 
 function exitCandidate(symbol: SupportedSymbol, held: number, reason: string): Candidate {
   return { priority: 0, strength: Math.abs(held), action: "SELL", symbol, allocationPercent: 100, reason };
-}
-
-/**
- * Entry or top-up toward a signed target. Returns nothing when the book is already
- * within TOP_UP_GAP_PERCENT of the target or on the other side (the exit rule
- * flattens the opposite side first).
- */
-function towardTarget(symbol: SupportedSymbol, held: number, target: number, strength: number, reason: string): Candidate | undefined {
-  if (target > 0 && held >= 0 && target - held > TOP_UP_GAP_PERCENT) {
-    return { priority: 2, strength, action: "BUY", symbol, allocationPercent: round(target - held), reason };
-  }
-
-  if (target < 0 && held <= 0 && held - target > TOP_UP_GAP_PERCENT) {
-    return { priority: 2, strength, action: "SHORT", symbol, allocationPercent: round(held - target), reason };
-  }
-
-  return undefined;
 }
 
 function btcAbove(context: DecisionContext, key: "sma50" | "sma100" | "sma200"): boolean | undefined {
@@ -180,6 +158,13 @@ function channelTargets(
     size: (trend: AssetTrend) => number | undefined;
     regime: "asset-sma50" | "btc-sma100";
     label: string;
+    /**
+     * Also enter on a pullback inside an established trend: short a 24h bounce larger
+     * than this percent when the asset is below its SMA50 with a negative 30-day
+     * return, buy a dip of the same size in the mirror case. October 2026 fell in
+     * steps with sharp bounces; breakouts alone kept missing the next leg down.
+     */
+    pullbackPercent?: number;
   }
 ): Targets {
   const targets: Targets = {};
@@ -213,13 +198,21 @@ function channelTargets(
       targets[symbol] = { target: size, reason: `${symbol} broke its ${options.entry}-day high ${high} with ${regimeName} up` };
     } else if (low != null && price < low && okShort) {
       targets[symbol] = { target: -size, reason: `${symbol} broke its ${options.entry}-day low ${low} with ${regimeName} down` };
+    } else if (options.pullbackPercent != null && trend.return30dPercent != null) {
+      const change = snapshot.change24h ?? 0;
+
+      if (below(snapshot, "sma50") && trend.return30dPercent < 0 && change > options.pullbackPercent && okShort) {
+        targets[symbol] = { target: -size, reason: `${symbol} bounced ${round(change)}% in 24h inside a downtrend: ${options.label} pullback short` };
+      } else if (above(snapshot, "sma50") && trend.return30dPercent > 0 && change < -options.pullbackPercent && okLong) {
+        targets[symbol] = { target: size, reason: `${symbol} dipped ${round(change)}% in 24h inside an uptrend: ${options.label} pullback long` };
+      }
     }
   }
 
   return targets;
 }
 
-/** Turtle System 1: 20-day breakout either way, 10-day exit, ~5% equity risk per 2N (max 33%), per-asset SMA50. */
+/** Turtle System 1: 20-day breakout either way plus 3% pullback entries, 10-day exit, ~5% equity risk per 2N (max 33%), per-asset SMA50. */
 const turtle: RuleBook = {
   timeHorizon: "MEDIUM",
   candidates(context) {
@@ -230,16 +223,20 @@ const turtle: RuleBook = {
         size: (trend) => (trend.atr20Percent ? Math.min(33, (5 / (2 * trend.atr20Percent)) * 100) : undefined),
         regime: "asset-sma50",
         label: "Turtle",
+        pullbackPercent: 3,
       })
     );
   },
 };
 
-/** Donchian: 20-day breakout either way, 10-day exit, 25% equal weight, BTC SMA100 regime. */
+/** Donchian: 20-day breakout either way plus 3% pullback entries, 10-day exit, 25% equal weight, per-asset SMA50. */
 const donchian: RuleBook = {
   timeHorizon: "MEDIUM",
   candidates(context) {
-    return fromTargets(context, channelTargets(context, { entry: "20", size: () => 25, regime: "btc-sma100", label: "channel" }));
+    return fromTargets(
+      context,
+      channelTargets(context, { entry: "20", size: () => 25, regime: "asset-sma50", label: "channel", pullbackPercent: 3 })
+    );
   },
 };
 
@@ -251,62 +248,49 @@ const speculator: RuleBook = {
   },
 };
 
-function volatilityScaled(snapshot: AssetSnapshot, trend: AssetTrend) {
-  const dailyVol = (trend.volatility30dPercent ?? 0) / 100;
+const REVERSION_TRIGGER_PERCENT = 3;
+const REVERSION_SIZE = 25;
 
-  if (!(dailyVol > 0) || snapshot.change24h == null || snapshot.change7d == null || trend.return30dPercent == null) {
-    return undefined;
-  }
-
-  const z1 = snapshot.change24h / 100 / dailyVol;
-  const z7 = snapshot.change7d / 100 / (dailyVol * Math.sqrt(7));
-  const z30 = trend.return30dPercent / 100 / (dailyVol * Math.sqrt(30));
-  return { dailyVol, z1, z7, z30, score: 0.2 * z1 + 0.4 * z7 + 0.4 * z30 };
-}
-
-/** Simons: 1/7/30-day time-series momentum, all horizons agree, long-only, BTC SMA100 gate, 25% vol target. */
+/**
+ * Simons: mean reversion inside the trend. In a downtrend (below SMA50, negative
+ * 30-day return) short a 24h bounce of more than 3% and cover at the 10-day low; in an
+ * uptrend buy a 3% dip and sell at the 10-day high. A regime flip closes the trade.
+ * Momentum shorts lost money on every rebound; fading the rebound itself made money in
+ * the October 2026 drop.
+ */
 const quant: RuleBook = {
   timeHorizon: "SHORT",
   candidates(context) {
-    const out: Candidate[] = [];
-    const btcUp = btcAbove(context, "sma100");
+    const targets: Targets = {};
 
-    for (const { symbol, trend, snapshot } of withTrend(context)) {
+    for (const { symbol, price, trend, snapshot } of withTrend(context)) {
+      if (!trend.sma50 || trend.return30dPercent == null || trend.low10 == null || trend.high10 == null) {
+        continue;
+      }
+
       const held = allocation(context, symbol);
-      const signal = volatilityScaled(snapshot, trend);
+      const down = price < trend.sma50 && trend.return30dPercent < 0;
+      const up = price > trend.sma50 && trend.return30dPercent > 0;
+      const change = snapshot.change24h ?? 0;
 
-      if (held < 0) {
-        out.push(exitCandidate(symbol, held, `${symbol} short is outside the long-only quant mandate`));
-        continue;
-      }
-
-      if (!signal) {
-        continue;
-      }
-
-      const z = `z1 ${round(signal.z1)}, z7 ${round(signal.z7)}, z30 ${round(signal.z30)}`;
-
-      // Exits ignore the noisy 1-day leg so a single red day does not flip the book.
-      if (held > 0 && (signal.z7 < 0 || signal.z30 < 0 || signal.score < 0 || btcUp === false)) {
-        out.push(exitCandidate(symbol, held, `${symbol} momentum no longer agrees (${z}${btcUp === false ? ", BTC under SMA100" : ""})`));
-        continue;
-      }
-
-      const agrees = signal.z1 > 0 && signal.z7 > 0 && signal.z30 > 0 && signal.score > 0.5 && btcUp === true;
-
-      if (!agrees && held <= DUST_PERCENT) {
-        continue;
-      }
-
-      const target = Math.min(30, (0.25 / (signal.dailyVol * Math.sqrt(365))) * 100);
-      const candidate = towardTarget(symbol, held, target, signal.score, `${symbol} 1/7/30-day momentum agrees (${z}); vol-targeted size ${round(target)}%`);
-
-      if (candidate) {
-        out.push(candidate);
+      if (held < -0.5) {
+        targets[symbol] =
+          !down || price <= trend.low10
+            ? { target: 0, reason: !down ? `${symbol} left its downtrend: cover` : `${symbol} reached its 10-day low ${trend.low10}: take the reversion` }
+            : { target: held, reason: `${symbol} bounce short still on below SMA50` };
+      } else if (held > 0.5) {
+        targets[symbol] =
+          !up || price >= trend.high10
+            ? { target: 0, reason: !up ? `${symbol} left its uptrend: sell` : `${symbol} reached its 10-day high ${trend.high10}: take the reversion` }
+            : { target: held, reason: `${symbol} dip long still on above SMA50` };
+      } else if (down && change > REVERSION_TRIGGER_PERCENT) {
+        targets[symbol] = { target: -REVERSION_SIZE, reason: `${symbol} bounced ${round(change)}% in 24h inside a downtrend: fade it toward the 10-day low ${trend.low10}` };
+      } else if (up && change < -REVERSION_TRIGGER_PERCENT) {
+        targets[symbol] = { target: REVERSION_SIZE, reason: `${symbol} dipped ${round(change)}% in 24h inside an uptrend: buy it toward the 10-day high ${trend.high10}` };
       }
     }
 
-    return out;
+    return fromTargets(context, targets);
   },
 };
 

@@ -104,23 +104,43 @@ describe("rule cores", () => {
     expect(proposal?.decision).toMatchObject({ action: "SELL", symbol: "ETH", allocationPercent: 15 / 0.2 });
   });
 
-  it("Donchian shorts a 20-day breakdown only when BTC is under SMA100", () => {
-    const bearish = proposeRuleDecision(
-      context({ agentId: "richard-donchian", assets: { BTC: { price: 90 }, XRP: { price: 70 } } })
+  it("Donchian shorts a 20-day breakdown only below the asset's SMA50", () => {
+    const breakdown = proposeRuleDecision(context({ agentId: "richard-donchian", assets: { XRP: { price: 70 } } }));
+    const againstTrend = proposeRuleDecision(
+      context({ agentId: "richard-donchian", assets: { XRP: { price: 70, trend: trend({ sma50: 60 }) } } })
     );
-    const bullish = proposeRuleDecision(context({ agentId: "richard-donchian", assets: { XRP: { price: 70 } } }));
 
-    expect(bearish?.decision).toMatchObject({ action: "SHORT", symbol: "XRP" });
-    expect(bullish?.decision.action).toBe("HOLD");
+    expect(breakdown?.decision).toMatchObject({ action: "SHORT", symbol: "XRP" });
+    expect(againstTrend?.decision.action).toBe("HOLD");
   });
 
-  it("Simons buys only when 1/7/30-day momentum all agree and BTC is over SMA100", () => {
-    const strong = { change24h: 2, change7d: 8, trend: trend({ return30dPercent: 20 }) };
-    const agree = proposeRuleDecision(context({ agentId: "jim-simons", assets: { ETH: strong } }));
-    const btcDown = proposeRuleDecision(context({ agentId: "jim-simons", assets: { ETH: strong, BTC: { price: 90 } } }));
+  it("Dennis and Donchian short a 24h bounce of more than 3% inside a downtrend", () => {
+    const bounce = { price: 90, change24h: 4, trend: trend({ return30dPercent: -8 }) };
+    const smallBounce = { ...bounce, change24h: 2 };
 
-    expect(agree?.decision).toMatchObject({ action: "BUY", symbol: "ETH" });
-    expect(btcDown?.decision.action).toBe("HOLD");
+    for (const agentId of ["richard-dennis", "richard-donchian"]) {
+      expect(proposeRuleDecision(context({ agentId, assets: { SOL: bounce } }))?.decision).toMatchObject({ action: "SHORT", symbol: "SOL" });
+      expect(proposeRuleDecision(context({ agentId, assets: { SOL: smallBounce } }))?.decision.action).toBe("HOLD");
+    }
+  });
+
+  it("Simons fades a bounce in a downtrend and covers at the 10-day low", () => {
+    const downtrend = trend({ return30dPercent: -8 });
+    const fade = proposeRuleDecision(context({ agentId: "jim-simons", assets: { ETH: { price: 90, change24h: 4, trend: downtrend } } }));
+    const stillOn = proposeRuleDecision(
+      context({ agentId: "jim-simons", assets: { ETH: { price: 88, trend: downtrend } }, positions: [held("ETH", -25, 88)] })
+    );
+    const target = proposeRuleDecision(
+      context({ agentId: "jim-simons", assets: { ETH: { price: 79, trend: downtrend } }, positions: [held("ETH", -25, 79)] })
+    );
+    const dipBuy = proposeRuleDecision(
+      context({ agentId: "jim-simons", assets: { BNB: { price: 108, change24h: -4, trend: trend({ return30dPercent: 6 }) } } })
+    );
+
+    expect(fade?.decision).toMatchObject({ action: "SHORT", symbol: "ETH" });
+    expect(stillOn?.decision.action).toBe("HOLD");
+    expect(target?.decision).toMatchObject({ action: "SELL", symbol: "ETH" });
+    expect(dipBuy?.decision).toMatchObject({ action: "BUY", symbol: "BNB" });
   });
 
   it("Elon longs weekly leaders above SMA50 and shorts laggards below it", () => {

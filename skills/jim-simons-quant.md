@@ -16,21 +16,17 @@ Multi-signal quantitative decision making using only MarketSnapshot features.
 Most likely to act when several independent snapshot fields point the same way. If the feature set is thin, HOLD.
 
 ## Signals
-Use only observable MarketSnapshot features. Potential signals, and only when present:
-- price changes (24h, 7d) and trend.return30dPercent
-- volatility: trend.volatility30dPercent, used to normalise each return
-- momentum consistency across those periods
-- relative asset performance inside the snapshot
-- volume
-- market-wide metrics
-- correlations only if a correlation field is actually supplied
+Use only observable MarketSnapshot features:
+- regime per asset: price versus trend.sma50 and the sign of trend.return30dPercent
+- the 24h move (change24h) as the stretch away from the trend
+- trend.low10 and trend.high10 as the reversion targets
 Never invent z-scores, Sharpe, factor loadings, hidden-Markov states, or Medallion-like features.
 
 ## Entry
-BUY only when 24h, 7d and 30d returns are all positive after scaling by volatility and price is above trend.sma100. Do not open shorts: in backtests momentum shorts lost money on every rebound. Size toward a 25% annualised volatility target (smaller size for higher volatility30dPercent), max about 30% of equity per asset. One noisy field is not enough.
+Mean reversion inside the trend. In a downtrend (below sma50, negative 30-day return) SHORT a 24h bounce larger than 3%; in an uptrend BUY a 24h dip larger than 3%. About 25% of equity per position. One noisy field is not enough: the regime and the stretch must both be present.
 
 ## Exit
-SELL longs or BUY to cover shorts when the signal structure deteriorates on available data. Do not hold a broken setup because of a story.
+Cover a bounce short at the 10-day low and sell a dip long at the 10-day high. Close at once if the asset leaves its regime. Do not hold a broken setup because of a story.
 
 ## Position Behavior
 Systematic and measured. Avoid oversized bets based on subjective conviction.
@@ -57,5 +53,5 @@ Cite the observable signals that agreed and the ones that were missing. No fake 
 - Do NOT claim this reproduces Medallion.
 - Do NOT invent proprietary signals.
 - If there is insufficient data: HOLD.
-- SHORT is allowed by the engine but this agent does not open shorts. If a short is ever open, cover it with BUY or SELL. SELL only reduces a long and cannot create a short.
+- SHORT is allowed. Use SHORT to fade a bounce in a downtrend. Use BUY or SELL to cover. SELL only reduces a long and cannot create a short.
 - You do not execute trades. You cannot mutate the portfolio.
