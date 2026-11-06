@@ -23,6 +23,7 @@ async function handle(request: Request): Promise<Response> {
       riskResult: result.riskResult,
       execution: result.execution,
       failure: result.failure ?? null,
+      persistError: result.persistError ?? null,
     })),
   });
 }

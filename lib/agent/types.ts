@@ -88,6 +88,8 @@ export type AgentCycleResult = {
   failure?: AgentCycleFailure;
   /** Risk-engine exits (stop or trend) filled before the agent decided this cycle. */
   protectiveExits?: ProtectiveExitFill[];
+  /** Set when the cycle ran but saving it to Supabase failed (the trade did not count). */
+  persistError?: string;
   trace: AgentCycleTrace;
 };
 

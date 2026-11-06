@@ -113,6 +113,45 @@ export async function setMomentumAlphaTradingStatus(status: "ACTIVE" | "PAUSED")
   return setAgentTradingStatus(MOMENTUM_ALPHA_AGENT.id, status);
 }
 
+const PERSIST_ATTEMPTS = 2;
+const PERSIST_RETRY_DELAY_MS = 1_500;
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+
+  return String(error);
+}
+
+/**
+ * Saving a cycle is a chain of idempotent upserts, so a transient Supabase error
+ * can simply be retried. Returns the last error message when every attempt failed.
+ */
+async function persistWithRetry(agentId: string, displayName: string, store: AgentCycleStore): Promise<string | null> {
+  let lastError = "";
+
+  for (let attempt = 1; attempt <= PERSIST_ATTEMPTS; attempt += 1) {
+    try {
+      await persistAgentStore(agentId, store);
+      return null;
+    } catch (error) {
+      lastError = errorMessage(error);
+      console.error(`Failed to persist ${displayName} cycle (attempt ${attempt}/${PERSIST_ATTEMPTS})`, error);
+
+      if (attempt < PERSIST_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, PERSIST_RETRY_DELAY_MS));
+      }
+    }
+  }
+
+  return lastError;
+}
+
 export async function runLiveAgentCycle(
   agentId: string,
   options?: { cycleId?: string }
@@ -133,10 +172,11 @@ export async function runLiveAgentCycle(
     deps: cycleDependencies(store),
   });
 
-  try {
-    await persistAgentStore(definition.id, store);
-  } catch (error) {
-    console.error(`Failed to persist ${definition.displayName} cycle`, error);
+  const persistError = await persistWithRetry(definition.id, definition.displayName, store);
+
+  if (persistError) {
+    // Nothing was saved, so the fill never reaches the ledger; skip the floor chat too.
+    return { ...result, persistError };
   }
 
   try {
