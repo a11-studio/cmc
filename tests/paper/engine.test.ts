@@ -674,4 +674,58 @@ describe("paper trading engine", () => {
     expect(replayed.positions[0]?.quantity).toBeCloseTo(first.account.positions[0]?.quantity ?? 0, 8);
     expect(replayed.trades).toHaveLength(1);
   });
+
+  const ledgerTrade = (id: string, side: Trade["side"], symbol: Trade["symbol"], quantity: number, price: number): Trade => ({
+    id,
+    symbol,
+    side,
+    quantity,
+    price,
+    notional: quantity * price,
+    cycleId: id,
+    createdAt: `2026-10-15T0${id.length % 10}:00:00.000Z`,
+  });
+
+  it("replayPaperAccountFromTrades derives peakEquity from fills marked at the latest fill price", () => {
+    const replayed = replayPaperAccountFromTrades(INITIAL_CAPITAL, [
+      ledgerTrade("b1", "BUY", "SOL", 20, 100),
+      ledgerTrade("b2", "BUY", "SOL", 10, 120),
+      ledgerTrade("s1", "SELL", "SOL", 30, 90),
+    ]);
+
+    // After b2 the 30 SOL are marked at 120: 10_000 - 2_000 - 1_200 + 3_600 = 10_400.
+    expect(replayed.peakEquity).toBeCloseTo(10_400, 6);
+    expect(replayed.cash).toBeCloseTo(9_500, 6);
+    expect(replayed.positions).toEqual([]);
+  });
+
+  it("replayPaperAccountFromTrades ignores resurrected sells of an already closed position", () => {
+    const replayed = replayPaperAccountFromTrades(INITIAL_CAPITAL, [
+      ledgerTrade("buy", "BUY", "SOL", 8.0806, 110),
+      ledgerTrade("sell", "SELL", "SOL", 8.0806, 102),
+      ...Array.from({ length: 8 }, (_, index) => ledgerTrade(`ghost-${index}`, "SELL", "SOL", 8.0806, 104)),
+    ]);
+
+    expect(replayed.trades).toHaveLength(2);
+    expect(replayed.cash).toBeCloseTo(10_000 - 8.0806 * 8, 6);
+    expect(replayed.peakEquity).toBeCloseTo(INITIAL_CAPITAL, 6);
+  });
+
+  it("replayPaperAccountFromTrades does not double equity when a BUY covers a short", () => {
+    const replayed = replayPaperAccountFromTrades(INITIAL_CAPITAL, [
+      ledgerTrade("short", "SHORT", "BTC", 0.1, 80_000),
+      ledgerTrade("cover", "BUY", "BTC", 0.1, 81_000),
+    ]);
+
+    expect(replayed.positions).toEqual([]);
+    expect(replayed.cash).toBeCloseTo(9_900, 6);
+    expect(replayed.peakEquity).toBeCloseTo(INITIAL_CAPITAL, 6);
+  });
+
+  it("replayPaperAccountFromTrades keeps a supplied peak only as a lower bound", () => {
+    const trades = [ledgerTrade("b1", "BUY", "BTC", 0.05, 100_000), ledgerTrade("b2", "BUY", "BTC", 0.01, 120_000)];
+
+    expect(replayPaperAccountFromTrades(INITIAL_CAPITAL, trades, { peakEquity: 15_000 }).peakEquity).toBe(15_000);
+    expect(replayPaperAccountFromTrades(INITIAL_CAPITAL, trades, { peakEquity: 9_000 }).peakEquity).toBeCloseTo(11_000, 6);
+  });
 });

@@ -51,7 +51,15 @@ export type AgentAccountPayloadV1 = {
   version: 1;
   account: PaperAccount;
   dayKey: string;
+  /**
+   * "ledger" when account.peakEquity was produced from a ledger-replayed account.
+   * Payloads without it predate ledger replay and may carry phantom peaks from
+   * cash/position drift, so their peakEquity must not be trusted.
+   */
+  peakEquitySource?: "ledger";
 };
+
+export const LEDGER_PEAK_EQUITY_SOURCE = "ledger" as const;
 
 export type ArenaWriter = {
   upsert(table: string, rows: Record<string, unknown>[], onConflict: string): Promise<void>;
@@ -115,22 +123,35 @@ export function wrapAccountPayload(account: PaperAccount, dayKey: string): Agent
     version: 1,
     account: cloneJson(account),
     dayKey,
+    peakEquitySource: LEDGER_PEAK_EQUITY_SOURCE,
   };
 }
 
-export function unwrapAccountPayload(payload: unknown): { account: PaperAccount; dayKey: string | null } {
+export type UnwrappedAccountPayload = {
+  account: PaperAccount;
+  dayKey: string | null;
+  /** True only when peakEquity was written from a ledger-replayed account. */
+  peakEquityTrusted: boolean;
+};
+
+export function unwrapAccountPayload(payload: unknown): UnwrappedAccountPayload {
   if (isRecord(payload) && payload.version === 1 && isPaperAccount(payload.account)) {
     return {
       account: cloneJson(payload.account),
       dayKey: typeof payload.dayKey === "string" ? payload.dayKey : null,
+      peakEquityTrusted: payload.peakEquitySource === LEDGER_PEAK_EQUITY_SOURCE,
     };
   }
 
   if (isPaperAccount(payload)) {
-    return { account: cloneJson(payload), dayKey: null };
+    return { account: cloneJson(payload), dayKey: null, peakEquityTrusted: false };
   }
 
-  return { account: createPaperAccount(MOMENTUM_ALPHA_AGENT.initialCapital), dayKey: null };
+  return {
+    account: createPaperAccount(MOMENTUM_ALPHA_AGENT.initialCapital),
+    dayKey: null,
+    peakEquityTrusted: false,
+  };
 }
 
 export type StoredMarketCheckAsset = {

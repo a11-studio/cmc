@@ -409,9 +409,22 @@ function applyLedgerTrade(account: PaperAccount, trade: Trade, signedQuantity: n
   };
 }
 
+/** Equity with every open position marked at the last fill price seen for its symbol. */
+function equityAtFillPrices(account: PaperAccount, lastFillPrice: ReadonlyMap<string, number>): number {
+  return account.positions.reduce(
+    (equity, position) => equity + position.quantity * (lastFillPrice.get(position.symbol) ?? position.averageEntryPrice),
+    account.cash
+  );
+}
+
 /**
  * Rebuild account from the trades table, skipping fills that would have violated
  * paper cash/position rules (e.g. after historical cash/position drift in persistence).
+ *
+ * peakEquity is derived from the ledger itself: the highest equity reached after any
+ * applied fill, marking open positions at their latest fill price. A caller-supplied
+ * peakEquity is only a lower bound to merge in; pass it only when it is known to come
+ * from ledger-consistent valuations, never from a payload written before ledger replay.
  */
 export function replayPaperAccountFromTrades(
   initialCapital: number,
@@ -421,11 +434,13 @@ export function replayPaperAccountFromTrades(
   let account: PaperAccount = {
     initialCapital,
     cash: initialCapital,
-    peakEquity: options.peakEquity ?? initialCapital,
+    peakEquity: initialCapital,
     realizedPnl: 0,
     positions: [],
     trades: [],
   };
+  const lastFillPrice = new Map<string, number>();
+  let ledgerPeak = initialCapital;
 
   for (const trade of trades) {
     const signedQuantity = signedQuantityForTrade(trade);
@@ -435,7 +450,13 @@ export function replayPaperAccountFromTrades(
     }
 
     account = applyLedgerTrade(account, trade, signedQuantity);
+    lastFillPrice.set(trade.symbol, trade.price);
+    ledgerPeak = Math.max(ledgerPeak, equityAtFillPrices(account, lastFillPrice));
   }
 
-  return account;
+  const suppliedPeak = options.peakEquity;
+  const peakEquity =
+    suppliedPeak != null && Number.isFinite(suppliedPeak) ? Math.max(ledgerPeak, suppliedPeak) : ledgerPeak;
+
+  return { ...account, peakEquity };
 }

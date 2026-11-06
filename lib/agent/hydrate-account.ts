@@ -70,8 +70,10 @@ export async function loadPaperAccountForDashboard(
     const initialCapital =
       unwrapped.account.initialCapital || initialCapitalFor(agentId, MOMENTUM_ALPHA_AGENT.initialCapital);
 
+    // A stored peak from before ledger replay can be a phantom (resurrected positions,
+    // double-counted short cover) and would pin drawdown above the risk limit forever.
     return replayPaperAccountFromTrades(initialCapital, trades, {
-      peakEquity: unwrapped.account.peakEquity,
+      peakEquity: unwrapped.peakEquityTrusted ? unwrapped.account.peakEquity : undefined,
     });
   }
 

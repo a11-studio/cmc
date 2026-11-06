@@ -79,6 +79,27 @@ describe("Momentum Alpha persistence mapping", () => {
     expect(hydrated.listCycles()).toEqual([]);
   });
 
+  it("marks newly written payload peaks as ledger-derived", () => {
+    const wrapped = wrapAccountPayload(snapshotPersistedState(createInMemoryAgentStore(), NOW).account, "2026-09-17");
+
+    expect(wrapped.peakEquitySource).toBe("ledger");
+    expect(unwrapAccountPayload(wrapped).peakEquityTrusted).toBe(true);
+  });
+
+  it("does not trust peakEquity from payloads written before ledger replay", () => {
+    const legacy = {
+      version: 1,
+      dayKey: "2026-10-18",
+      account: { initialCapital: 10_000, cash: 9_834, peakEquity: 15_814, realizedPnl: -544, positions: [], trades: [] },
+    };
+
+    const unwrapped = unwrapAccountPayload(legacy);
+
+    expect(unwrapped.account.peakEquity).toBe(15_814);
+    expect(unwrapped.peakEquityTrusted).toBe(false);
+    expect(unwrapAccountPayload(legacy.account).peakEquityTrusted).toBe(false);
+  });
+
   it("round-trips a completed BUY cycle including the frozen snapshot", async () => {
     const store = createInMemoryAgentStore();
     const result = await runAgentCycle({
