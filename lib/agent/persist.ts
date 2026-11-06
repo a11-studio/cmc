@@ -1,4 +1,5 @@
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
+import { ARENA_SEASON_START } from "@/lib/agent/season";
 import { freezeMarketSnapshot } from "@/lib/agent/snapshot";
 import { createInMemoryAgentStore } from "@/lib/agent/store";
 import type { AgentCycleResult, AgentCycleStore } from "@/lib/agent/types";
@@ -57,6 +58,8 @@ export type AgentAccountPayloadV1 = {
    * cash/position drift, so their peakEquity must not be trusted.
    */
   peakEquitySource?: "ledger";
+  /** ARENA_SEASON_START of the season this payload was written in. */
+  seasonStart?: string;
 };
 
 export const LEDGER_PEAK_EQUITY_SOURCE = "ledger" as const;
@@ -124,33 +127,39 @@ export function wrapAccountPayload(account: PaperAccount, dayKey: string): Agent
     account: cloneJson(account),
     dayKey,
     peakEquitySource: LEDGER_PEAK_EQUITY_SOURCE,
+    seasonStart: ARENA_SEASON_START,
   };
 }
 
 export type UnwrappedAccountPayload = {
   account: PaperAccount;
   dayKey: string | null;
-  /** True only when peakEquity was written from a ledger-replayed account. */
+  /** True only when peakEquity was written from a ledger-replayed account in the current season. */
   peakEquityTrusted: boolean;
+  /** False for payloads from an earlier season: their cash, positions and peaks no longer apply. */
+  currentSeason: boolean;
 };
 
 export function unwrapAccountPayload(payload: unknown): UnwrappedAccountPayload {
   if (isRecord(payload) && payload.version === 1 && isPaperAccount(payload.account)) {
+    const currentSeason = payload.seasonStart === ARENA_SEASON_START;
     return {
       account: cloneJson(payload.account),
       dayKey: typeof payload.dayKey === "string" ? payload.dayKey : null,
-      peakEquityTrusted: payload.peakEquitySource === LEDGER_PEAK_EQUITY_SOURCE,
+      peakEquityTrusted: currentSeason && payload.peakEquitySource === LEDGER_PEAK_EQUITY_SOURCE,
+      currentSeason,
     };
   }
 
   if (isPaperAccount(payload)) {
-    return { account: cloneJson(payload), dayKey: null, peakEquityTrusted: false };
+    return { account: cloneJson(payload), dayKey: null, peakEquityTrusted: false, currentSeason: false };
   }
 
   return {
     account: createPaperAccount(MOMENTUM_ALPHA_AGENT.initialCapital),
     dayKey: null,
     peakEquityTrusted: false,
+    currentSeason: false,
   };
 }
 
@@ -386,7 +395,10 @@ export function persistedStateFromRows(
 
   const unwrapped = unwrapAccountPayload(agent.account_payload);
   const dayKey = agent.day_key ?? unwrapped.dayKey ?? utcDayKey(now);
-  const lastEquity = agent.last_equity ?? unwrapped.account.cash;
+  // A row last written in an earlier season carries that season's equity; the new
+  // season starts from initial capital so the daily-loss baseline starts there too.
+  const seasonCapital = persistedAgentIdentity(agentId).initialCapital;
+  const lastEquity = unwrapped.currentSeason ? agent.last_equity ?? unwrapped.account.cash : seasonCapital;
   const cycles = cycleRows
     .map((row) => reviveCycle(row.payload))
     .filter((cycle): cycle is AgentCycleResult => cycle != null);
@@ -395,7 +407,7 @@ export function persistedStateFromRows(
     agentId,
     account: unwrapped.account,
     status: isAgentRiskStatus(agent.status) ? agent.status : "ACTIVE",
-    dayStartEquity: agent.day_start_equity ?? lastEquity,
+    dayStartEquity: unwrapped.currentSeason ? agent.day_start_equity ?? lastEquity : seasonCapital,
     lastEquity,
     dayKey,
     cycles,

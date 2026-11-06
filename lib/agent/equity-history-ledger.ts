@@ -1,5 +1,7 @@
 import "server-only";
 
+import { ARENA_SEASON_START } from "@/lib/agent/season";
+
 import {
   anchorsFromPortfolioSnapshotRows,
   equityCurveFromTradeLedger,
@@ -143,6 +145,7 @@ export async function fetchEquitySeriesFromLedgerByAgent(
         "id, agent_id, symbol, side, quantity, price, notional, realized_pnl, decision_id, created_at"
       )
       .in("agent_id", agentIds)
+      .gte("created_at", ARENA_SEASON_START)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -158,6 +161,7 @@ export async function fetchEquitySeriesFromLedgerByAgent(
         .from("portfolio_snapshots")
         .select("timestamp, cycle_id")
         .eq("agent_id", agentId)
+        .gte("timestamp", ARENA_SEASON_START)
         .order("timestamp", { ascending: false })
         .limit(limit);
 

@@ -86,6 +86,45 @@ describe("Momentum Alpha persistence mapping", () => {
     expect(unwrapAccountPayload(wrapped).peakEquityTrusted).toBe(true);
   });
 
+  it("starts a fresh season from payloads written in an earlier season", () => {
+    const previousSeason = {
+      version: 1,
+      dayKey: "2026-11-06",
+      peakEquitySource: "ledger",
+      seasonStart: "2026-09-18T00:00:00.000Z",
+      account: { initialCapital: 10_000, cash: 6_874, peakEquity: 10_876, realizedPnl: -200, positions: [], trades: [] },
+    };
+
+    const unwrapped = unwrapAccountPayload(previousSeason);
+    const state = persistedStateFromRows(
+      { account_payload: previousSeason, status: "ACTIVE", day_start_equity: 9_600, last_equity: 9_591, day_key: "2026-11-06" },
+      [],
+      NOW,
+      "jim-simons"
+    );
+
+    expect(unwrapped).toMatchObject({ currentSeason: false, peakEquityTrusted: false });
+    expect(state?.dayStartEquity).toBe(10_000);
+    expect(state?.lastEquity).toBe(10_000);
+  });
+
+  it("keeps day-start equity from a payload written this season", () => {
+    const thisSeason = wrapAccountPayload(
+      { initialCapital: 10_000, cash: 9_500, peakEquity: 10_100, realizedPnl: 0, positions: [], trades: [] },
+      "2026-11-07"
+    );
+    const state = persistedStateFromRows(
+      { account_payload: thisSeason, status: "ACTIVE", day_start_equity: 9_900, last_equity: 9_800, day_key: "2026-11-07" },
+      [],
+      NOW,
+      "jim-simons"
+    );
+
+    expect(unwrapAccountPayload(thisSeason)).toMatchObject({ currentSeason: true, peakEquityTrusted: true });
+    expect(state?.dayStartEquity).toBe(9_900);
+    expect(state?.lastEquity).toBe(9_800);
+  });
+
   it("does not trust peakEquity from payloads written before ledger replay", () => {
     const legacy = {
       version: 1,

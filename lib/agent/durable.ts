@@ -2,6 +2,7 @@ import "server-only";
 
 import { STALE_CYCLE_CLAIM_MS } from "@/lib/agent/cycle-claim";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
+import { ARENA_SEASON_START } from "@/lib/agent/season";
 import { invalidateArenaCycleControlCache } from "@/lib/agent/cycle-control";
 import { invalidateDashboardLiteCache } from "@/lib/arena/dashboard-lite-cache";
 import { invalidateAgentEquityHistoryCache } from "@/lib/agent/equity-history";
@@ -143,6 +144,7 @@ async function hydrateAgentStoreUncached(
       .select("payload, status")
       .eq("agent_id", agentId)
       .neq("status", "CLAIMED")
+      .gte("started_at", ARENA_SEASON_START)
       .order("started_at", { ascending: false })
       .limit(HYDRATE_CYCLE_LIMIT),
   ]);

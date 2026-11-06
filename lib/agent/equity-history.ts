@@ -1,5 +1,7 @@
 import "server-only";
 
+import { ARENA_SEASON_START } from "@/lib/agent/season";
+
 import { approximateJsonBytes, logArenaEgress } from "@/lib/agent/egress-log";
 import { fetchAgentEquityHistoryFromLedger } from "@/lib/agent/equity-history-ledger";
 import { findAgentDefinition } from "@/lib/agents/registry";
@@ -42,6 +44,7 @@ async function fetchStoredPortfolioEquityHistory(
     .from("portfolio_snapshots")
     .select("equity, timestamp, cycle_id")
     .eq("agent_id", agentId)
+    .gte("timestamp", ARENA_SEASON_START)
     .order("timestamp", { ascending: false })
     .limit(EQUITY_HISTORY_LIMIT);
 
@@ -85,7 +88,8 @@ async function fetchAgentPortfolioEquityHistoryUncached(agentId: string): Promis
   const { count, error: tradeCountError } = await client
     .from("trades")
     .select("id", { count: "exact", head: true })
-    .eq("agent_id", agentId);
+    .eq("agent_id", agentId)
+    .gte("created_at", ARENA_SEASON_START);
 
   if (tradeCountError) {
     throw new Error(`equity history trade count: ${tradeCountError.message}`);

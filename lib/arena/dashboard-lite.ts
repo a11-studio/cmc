@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ARENA_SEASON_START } from "@/lib/agent/season";
 import { EQUITY_HISTORY_LIMIT } from "@/lib/agent/equity-history";
 import { valuationFromTradeLedger } from "@/lib/agent/equity-from-ledger";
 import {
@@ -100,6 +101,7 @@ async function fetchStoredEquitySeriesByAgent(
         .from("portfolio_snapshots")
         .select("agent_id, equity, timestamp, cycle_id")
         .eq("agent_id", agentId)
+        .gte("timestamp", ARENA_SEASON_START)
         .order("timestamp", { ascending: false })
         .limit(EQUITY_HISTORY_LIMIT);
 
@@ -159,7 +161,11 @@ async function fetchBatchedTradeCounts(
   client: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
   agentIds: readonly string[]
 ): Promise<Map<string, number>> {
-  const { data, error } = await client.from("trades").select("agent_id").in("agent_id", [...agentIds]);
+  const { data, error } = await client
+    .from("trades")
+    .select("agent_id")
+    .in("agent_id", [...agentIds])
+    .gte("created_at", ARENA_SEASON_START);
 
   if (error) {
     throw new Error(`dashboard-lite trade count: ${error.message}`);
@@ -242,6 +248,7 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
       .from("trades")
       .select("id, agent_id, symbol, side, quantity, price, notional, realized_pnl, decision_id, created_at")
       .in("agent_id", agentIds)
+      .gte("created_at", ARENA_SEASON_START)
       .order("created_at", { ascending: false })
       .limit(DASHBOARD_LITE_RECENT_FILLS_LIMIT),
     client
@@ -250,6 +257,7 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
         "id, agent_id, symbol, side, quantity, price, notional, realized_pnl, decision_id, created_at"
       )
       .in("agent_id", agentIds)
+      .gte("created_at", ARENA_SEASON_START)
       .order("created_at", { ascending: true }),
     client
       .from("agent_cycles")
@@ -257,12 +265,14 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
       .in("agent_id", agentIds)
       .neq("status", "CLAIMED")
       .not("completed_at", "is", null)
+      .gte("completed_at", ARENA_SEASON_START)
       .order("completed_at", { ascending: false })
       .limit(agentIds.length * 4),
     client
       .from("portfolio_snapshots")
       .select("agent_id, equity, timestamp, cycle_id, return_percent, drawdown_percent")
       .in("agent_id", agentIds)
+      .gte("timestamp", ARENA_SEASON_START)
       .order("timestamp", { ascending: false })
       .limit(agentIds.length * 2),
   ]);
@@ -362,7 +372,10 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
 
   const agents: DashboardLiteAgent[] = live.map((definition) => {
     const row = agentRows.get(definition.id);
-    const unwrapped = row ? unwrapAccountPayload(row.account_payload) : null;
+    const payload = row ? unwrapAccountPayload(row.account_payload) : null;
+    // Rows last written in an earlier season still hold that season's cash, equity and positions.
+    const unwrapped = payload?.currentSeason ? payload : null;
+    const seasonRow = unwrapped ? row : undefined;
     const initialCapital = row?.initial_capital ?? definition.initialCapital;
     const ledgerTrades = ledgerTradesByAgent.get(definition.id) ?? [];
     const ledgerValuation =
@@ -372,7 +385,7 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
     const snapshot = latestSnapshotByAgent.get(definition.id);
     const equity =
       ledgerValuation?.portfolio.equity ??
-      row?.last_equity ??
+      seasonRow?.last_equity ??
       snapshot?.equity ??
       unwrapped?.account.cash ??
       initialCapital;
@@ -383,7 +396,7 @@ async function fetchDashboardLiteUncached(): Promise<DashboardLite> {
       (initialCapital > 0 ? ((equity - initialCapital) / initialCapital) * 100 : 0);
     const drawdownPercent =
       ledgerValuation?.portfolio.drawdownPercent ?? snapshot?.drawdown_percent ?? 0;
-    const dbPositions = dbPositionsByAgent.get(definition.id) ?? [];
+    const dbPositions = unwrapped ? dbPositionsByAgent.get(definition.id) ?? [] : [];
     const positionRows =
       ledgerValuation != null
         ? [...ledgerValuation.positions].sort(

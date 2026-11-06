@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ARENA_SEASON_START } from "@/lib/agent/season";
 import { listLiveAgents } from "@/lib/agents/registry";
 import {
   buildDailyPnlByAgent,
@@ -31,6 +32,7 @@ async function fetchStoredWinnerEquityRows(
         .from("portfolio_snapshots")
         .select("agent_id, equity, timestamp")
         .eq("agent_id", agentId)
+        .gte("timestamp", ARENA_SEASON_START)
         .order("timestamp", { ascending: false })
         .limit(SNAPSHOT_LIMIT);
 

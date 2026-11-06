@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ARENA_SEASON_START } from "@/lib/agent/season";
 import { listLiveAgents } from "@/lib/agents/registry";
 import {
   STOP_EXIT_TITLE,
@@ -80,7 +81,8 @@ export async function fetchRuleReview(now = new Date()): Promise<RuleReviewSumma
   const live = listLiveAgents();
   const agents = live.map((agent) => ({ id: agent.id, name: agent.displayName, hasRuleCore: hasRuleCore(agent.id) }));
   const agentIds = agents.map((agent) => agent.id);
-  const since = new Date(now.getTime() - RULE_REVIEW_WINDOW_DAYS * 86_400_000).toISOString();
+  const windowStart = now.getTime() - RULE_REVIEW_WINDOW_DAYS * 86_400_000;
+  const since = new Date(Math.max(windowStart, Date.parse(ARENA_SEASON_START))).toISOString();
 
   const [decisionsResult, exitsResult] = await Promise.all([
     client

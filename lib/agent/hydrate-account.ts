@@ -2,6 +2,7 @@ import "server-only";
 
 import { mapTradeRow, unwrapAccountPayload, type PersistedAgentRow } from "@/lib/agent/persist";
 import { MOMENTUM_ALPHA_AGENT } from "@/lib/agent/constants";
+import { ARENA_SEASON_START } from "@/lib/agent/season";
 import { findAgentDefinition } from "@/lib/agents/registry";
 import { replayPaperAccountFromTrades } from "@/lib/paper/engine";
 import { createPaperAccount } from "@/lib/paper/portfolio";
@@ -32,6 +33,7 @@ async function loadTradesAndPositions(
       .from("trades")
       .select("id, symbol, side, quantity, price, notional, realized_pnl, decision_id, created_at")
       .eq("agent_id", agentId)
+      .gte("created_at", ARENA_SEASON_START)
       .order("created_at", { ascending: true }),
   ]);
 
@@ -77,6 +79,14 @@ export async function loadPaperAccountForDashboard(
     });
   }
 
+  if (!unwrapped.currentSeason) {
+    // First load of a new season: payload cash and the positions table still hold
+    // the previous season's book.
+    return createPaperAccount(
+      unwrapped.account.initialCapital || initialCapitalFor(agentId, MOMENTUM_ALPHA_AGENT.initialCapital)
+    );
+  }
+
   if (positions.length > 0) {
     return {
       initialCapital: unwrapped.account.initialCapital,
@@ -98,9 +108,10 @@ export async function loadPaperAccountForExecution(
   agent: PersistedAgentRow
 ): Promise<PaperAccount> {
   const dashboard = await loadPaperAccountForDashboard(client, agentId, agent);
-  const legacy = unwrapAccountPayload(agent.account_payload).account;
+  const unwrapped = unwrapAccountPayload(agent.account_payload);
+  const legacy = unwrapped.account;
 
-  if (dashboard.trades.length > 0) {
+  if (dashboard.trades.length > 0 || !unwrapped.currentSeason) {
     return dashboard;
   }
 
