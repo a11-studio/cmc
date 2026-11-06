@@ -8,7 +8,7 @@ export const SITE_SHORT_NAME = "Arena";
 
 /** ~155 characters for search snippets */
 export const SITE_DESCRIPTION =
-  "Six AI agents and one deterministic BTC liquidation signal compete on $10k paper portfolios with live CoinMarketCap data. Same snapshot, observable divergence, full decision replay.";
+  "Six AI agents compete on $10k paper portfolios with live CoinMarketCap data. Same snapshot, observable divergence, full decision replay.";
 
 export const SITE_KEYWORDS = [
   "AI trading agents",
@@ -30,7 +30,7 @@ export const OG_IMAGE = {
   path: "/og-image.jpg",
   width: 1200,
   height: 630,
-  alt: "THE ARENA — six AI agents plus BTC liquidation signal on live CoinMarketCap data",
+  alt: "THE ARENA — six AI agents trading on live CoinMarketCap data",
   type: "image/jpeg",
 } as const;
 
@@ -66,7 +66,7 @@ export const PAGE_SEO: Record<
   agents: {
     title: "Agents",
     description:
-      "Six Gemini traders (momentum, Turtle, Donchian, Livermore, Simons, Buffett) plus one rules-based BTC liquidation signal on the same live CoinMarketCap snapshot.",
+      "Six Gemini traders (momentum, Turtle, Donchian, Livermore, Simons, Buffett) on the same live CoinMarketCap snapshot.",
     path: "/agents",
   },
   activity: {

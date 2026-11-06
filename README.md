@@ -4,7 +4,7 @@
 
 *One market. Different minds.*
 
-Seven ways to act on the same hourly `MarketSnapshot`: **six AI agents** (Gemini + strategy skills) and **one deterministic BTC liquidation signal** (rules, no LLM). Each gets $10,000 in virtual capital, trades on paper, and builds a track record you can audit decision by decision.
+Six ways to act on the same hourly `MarketSnapshot`: **six AI agents** (Gemini + strategy skills) behind one deterministic risk engine. Each gets $10,000 in virtual capital, trades on paper, and builds a track record you can audit decision by decision.
 
 **Live demo:** [thearena.buzz](https://thearena.buzz)
 
@@ -16,11 +16,9 @@ Submitted to the **CoinMarketCap API Hackathon** — **AI Agents and Automation*
 
 Most AI trading demos show one model making one prediction. THE ARENA turns that into an ongoing competition: the **same market**, **different strategies**, **persistent portfolios**, **deterministic risk controls**, and an **observable track record over time**.
 
-**One CMC `MarketSnapshot`. Seven different ways to act on it.**
+**One CMC `MarketSnapshot`. Six different ways to act on it.**
 
-**Six AI agents interpret the market. A deterministic liquidation signal provides an independent, rules-based view.**
-
-That split is the product story: **6 opinions + 1 objective signal → same market → observable divergence.**
+**Six AI agents interpret the market. A deterministic risk engine decides what may actually trade.**
 
 ---
 
@@ -28,7 +26,7 @@ That split is the product story: **6 opinions + 1 objective signal → same mark
 
 A plain CoinMarketCap call returns a price. None of the following falls out of that call:
 
-- **The same snapshot produces different answers.** Each Gemini agent loads a strategy file (`skills/*.md`) — mandate, horizon, risk appetite. Identical input, divergent behaviour. The liquidation signal agent does not use Gemini; it mirrors the Research BTC liquidation read (bearish → SHORT, neutral → HOLD, bullish → BUY).
+- **The same snapshot produces different answers.** Each Gemini agent loads a strategy file (`skills/*.md`) — mandate, horizon, risk appetite. Identical input, divergent behaviour.
 - **The model does not get the last word.** `lib/risk/evaluate.ts` runs deterministic checks after every decision intent: max trade size (15% of equity), open position cap (3), daily loss limit (5%), max drawdown (15%), minimum cash, and concentration. Trades can be downsized or blocked; the rejection reason is stored.
 - **It compounds.** Portfolios and P&L persist in Supabase across cycles, so a 09:00 decision constrains 10:00.
 - **It runs unattended.** **GitHub Actions** triggers the production cycle every hour via a protected Vercel endpoint (`POST /api/agents/cycle` with `CRON_SECRET`). Cycles are claimed idempotently per UTC slot so retries cannot double-trade.
@@ -41,20 +39,18 @@ A plain CoinMarketCap call returns a price. None of the following falls out of t
 | Layer | What it is |
 | --- | --- |
 | **Research** | Live board + **BTC Liquidation Signal** card (CMC v5 per-crypto liquidations, 4h-biased read) |
-| **Liquidation signal agent** | Rules-only participant that trades BTC from `market.btcLiquidation` — same signal as Research |
 | **Six Gemini agents** | Competing philosophies on the full snapshot (quotes, regime, sentiment, derivatives, aggregate liquidations) |
 
-Judges can verify the API on **Research** and see it **trade** without trusting an LLM narrative.
+Judges can verify the API on **Research** and audit every trade from snapshot to fill.
 
 ---
 
 ## The loop
 
 ```
-                    ┌── Gemini agent 1 … 6 (skills/*.md)
-CoinMarketCap  ──►  MarketSnapshot ──┼── Liquidation signal (rules → BTC only)
-  (6 endpoints)                     │
-                                    ▼
+CoinMarketCap  ──►  MarketSnapshot ──►  Gemini agent 1 … 6 (skills/*.md)
+  (6 endpoints)    + daily trend         │
+                                         ▼
                           risk engine → paper execution → leaderboard / chat / replay
 ```
 
@@ -79,7 +75,7 @@ Paths are defined in `lib/market/cmc/client.ts`. Probe script: `node --env-file=
 
 ### CMC signal → behaviour (LIVE participants only)
 
-Honest mapping from strategy skills and the liquidation agent — not every field drives every agent every hour.
+Honest mapping from strategy skills — not every field drives every agent every hour.
 
 | Snapshot / CMC input | Who uses it (LIVE) |
 | --- | --- |
@@ -89,7 +85,7 @@ Honest mapping from strategy skills and the liquidation agent — not every fiel
 | Fear & Greed | **Buffett** — buy fear / slow when euphoric (long-only) |
 | Derivatives OI & venue volume | Available in snapshot; **Simons** and multi-signal reads; not a dedicated macro-only LIVE agent |
 | Aggregate 24h liquidations | Context for **Buffett** (forced selling); general market stress |
-| **BTC liquidation v5 → `btcLiquidation`** | **Research UI** + **liquidation signal agent** (deterministic SHORT/HOLD/BUY) |
+| **BTC liquidation v5 → `btcLiquidation`** | **Research UI**; available to every agent as market context |
 
 ---
 
@@ -108,11 +104,7 @@ Honest mapping from strategy skills and the liquidation agent — not every fiel
 
 Each maps to `skills/*.md` and one registry row in `lib/agents/registry.ts`.
 
-### One deterministic market signal
-
-| Participant | Type | Behaviour |
-| --- | --- | --- |
-| BTC Liquidation Signal | Rules (no LLM) | Mirrors Research: bearish / neutral / bullish → SHORT / HOLD / BUY on BTC |
+A seventh, rules-only BTC Liquidation Signal agent ran from Sep 22 to Nov 6, 2026 and was retired: the signal flipped about every 2.4 hours and its BUY/SHORT mapping lost 16% while the market fell 9%.
 
 ---
 
@@ -123,8 +115,8 @@ app/(terminal)/           THE ARENA UI — leaderboard, agents, decisions, activ
 app/api/agents/cycle/     Hourly entry (GitHub Actions → Vercel)
 lib/market/cmc/           CMC client, normaliser, MarketSnapshot builder
 lib/agents/               Registry and skills
-lib/ai/                   Gemini decision engine (six agents only)
-lib/agent/                Cycles, scheduling, durability, liquidation decision
+lib/ai/                   Gemini decision engine
+lib/agent/                Cycles, scheduling, durability
 lib/risk/                 Deterministic risk engine
 lib/paper/                Paper trading and portfolios
 supabase/migrations/      Agents, decisions, trades, chat
@@ -194,7 +186,7 @@ node --env-file=.env.local scripts/cmc-probe.mjs
 
 ## Feedback on the CoinMarketCap API
 
-**What worked:** One provider for spot, regime, sentiment, derivatives, and liquidations — including `/v5/derivatives/*`, which most free crypto APIs do not expose. Parallel snapshot builds finish in well under two seconds. The per-crypto liquidation endpoint is the bridge from **data** to **Research** to **rules-based trading**.
+**What worked:** One provider for spot, regime, sentiment, derivatives, and liquidations — including `/v5/derivatives/*`, which most free crypto APIs do not expose. Parallel snapshot builds finish in well under two seconds. The per-crypto liquidation endpoint is the bridge from **data** to **Research**.
 
 **Friction:** `quote` shape differs by API version (`lib/market/normalize.ts`); collection nesting varies; no native “change since last hour” for hourly agents (`lib/market/quote-history.ts`); credit planning required empirical measurement.
 

@@ -13,7 +13,6 @@ const portraits: Partial<Record<AgentMark, string>> = {
   burry: "/agents/michael-burry.jpg",
   buffett: "/agents/warren-buffett.jpg",
   hayes: "/agents/arthur-hayes.jpg",
-  liquidation: "/agents/btc-liquidation-signal.png",
 };
 
 const markStyles: Record<AgentMark, string> = {
@@ -29,7 +28,6 @@ const markStyles: Record<AgentMark, string> = {
   burry: "bg-negative-muted text-negative",
   buffett: "bg-[#0B1A14] text-[#6EE7B7]",
   hayes: "bg-[#1A1208] text-[#FDBA74]",
-  liquidation: "bg-[#1A0F14] text-[#F87171]",
 };
 
 function MomentumGlyph() {
@@ -110,27 +108,6 @@ function MacroGlyph() {
   );
 }
 
-function LiquidationGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-[14px]">
-      <path
-        d="M12 4v16M8.5 7.5h7M7 11h10M8.5 14.5h7"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-      <path
-        d="M6 18c2-2 4-3 6-3s4 1 6 3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function CompoundGlyph() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="size-[14px]">
@@ -159,7 +136,6 @@ const glyphs: Record<AgentMark, ReactNode> = {
   burry: <ContrarianGlyph />,
   buffett: <CompoundGlyph />,
   hayes: <MacroGlyph />,
-  liquidation: <LiquidationGlyph />,
 };
 
 const sizePx = {
@@ -193,10 +169,7 @@ export function AgentAvatar({
           alt=""
           width={pixels}
           height={pixels}
-          className={cn(
-            "size-full object-cover",
-            mark === "liquidation" ? "object-center" : "object-[center_18%]"
-          )}
+          className="size-full object-cover object-[center_18%]"
         />
       </span>
     );
