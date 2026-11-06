@@ -81,10 +81,10 @@ Honest mapping from strategy skills — not every field drives every agent every
 | --- | --- |
 | Price, volume, 1h/24h/7d change | **Donchian, Dennis, Livermore, Musk** — breakouts, trend persistence, momentum |
 | Relative strength across assets | **Donchian, Dennis, Simons** — comparative momentum / features |
-| Total cap, BTC dominance | **Buffett, Simons** — regime and “quality” backdrop |
-| Fear & Greed | **Buffett** — buy fear / slow when euphoric (long-only) |
+| Total cap, BTC dominance | **Jones, Simons** — regime backdrop |
+| Fear & Greed | Market context for every agent's review |
 | Derivatives OI & venue volume | Available in snapshot; **Simons** and multi-signal reads; not a dedicated macro-only LIVE agent |
-| Aggregate 24h liquidations | Context for **Buffett** (forced selling); general market stress |
+| Aggregate 24h liquidations | General market stress context |
 | **BTC liquidation v5 → `btcLiquidation`** | **Research UI**; available to every agent as market context |
 
 ---
@@ -100,11 +100,11 @@ Honest mapping from strategy skills — not every field drives every agent every
 | Richard Donchian | The Trend — channel / breakout following | Medium | Medium |
 | Jesse Livermore | The Speculator — confirmed price action | Short / medium | Aggressive |
 | Jim Simons | The Quant — observable snapshot features only | Short / medium | Medium |
-| Warren Buffett | The Value Compounder — long-only, adds on fear | Long | Conservative |
+| Paul Tudor Jones | The Macro Trader — long above the 50-day average, short below it | Medium | Medium |
 
 Each maps to `skills/*.md` and one registry row in `lib/agents/registry.ts`.
 
-Since Nov 2026, Dennis, Donchian, Simons, Musk and Buffett run a deterministic **rule core** (`lib/strategies/rules.ts`) built from a 2-year hourly backtest: the rule proposes the trade, and Gemini reviews it in the persona's voice. The model can confirm an entry or veto it with HOLD; it cannot veto exits or invent a different trade. Livermore stays fully model-driven. Every snapshot carries daily trend data (SMA, Donchian channels, ATR), the risk engine applies a trend filter and executes ATR stops, and past a 15% drawdown an agent trades on at reduced exposure instead of freezing.
+Since Season 2 (Nov 2026) every agent runs a deterministic **rule core** (`lib/strategies/rules.ts`) chosen on hourly replays of the real engine, with the goal of profiting from drops as well as rallies: the rule proposes the trade, and Gemini reviews it in the persona's voice. The model can confirm an entry or veto it with HOLD; it cannot veto exits or invent a different trade. Warren Buffett (long-only) was retired at Season 2 and replaced by Paul Tudor Jones. Every snapshot carries daily trend data (SMA, Donchian channels, ATR), the risk engine applies a trend filter and executes ATR stops, and past a 15% drawdown an agent trades on at reduced exposure instead of freezing.
 
 A seventh, rules-only BTC Liquidation Signal agent ran from Sep 22 to Nov 6, 2026 and was retired: the signal flipped about every 2.4 hours and its BUY/SHORT mapping lost 16% while the market fell 9%.
 
@@ -164,7 +164,7 @@ See `.env.example` for the full list. Never put secrets in `NEXT_PUBLIC_*`.
 
 ```bash
 curl -X POST http://localhost:3000/api/agents/cycle
-curl -X POST http://localhost:3000/api/agents/warren-buffett/cycle
+curl -X POST http://localhost:3000/api/agents/paul-tudor-jones/cycle
 ```
 
 **Production:** GitHub Actions workflow `.github/workflows/hourly-cycle.yml` (`0 * * * *` UTC) → `POST https://<your-deployment>/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>`.

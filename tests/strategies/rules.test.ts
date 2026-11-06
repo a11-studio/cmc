@@ -71,9 +71,12 @@ function held(symbol: SupportedSymbol, allocationPercent: number, price = 110): 
 }
 
 describe("rule cores", () => {
-  it("only the five rule personas have a core; Livermore stays LLM-only", () => {
-    expect(["richard-dennis", "richard-donchian", "jim-simons", "momentum-alpha", "warren-buffett"].every(hasRuleCore)).toBe(true);
-    expect(proposeRuleDecision(context({ agentId: "jesse-livermore" }))).toBeNull();
+  it("every live persona has a rule core", () => {
+    for (const id of ["richard-dennis", "richard-donchian", "jim-simons", "momentum-alpha", "jesse-livermore", "paul-tudor-jones"]) {
+      expect(hasRuleCore(id)).toBe(true);
+    }
+
+    expect(proposeRuleDecision(context({ agentId: "warren-buffett" }))).toBeNull();
   });
 
   it("holds when the snapshot has no trend data", () => {
@@ -84,14 +87,16 @@ describe("rule cores", () => {
     expect(proposal?.decision.action).toBe("HOLD");
   });
 
-  it("Turtle buys a 55-day breakout above SMA100, capped by headroom", () => {
-    const proposal = proposeRuleDecision(context({ agentId: "richard-dennis", assets: { SOL: { price: 125 } } }));
+  it("Turtle buys a 20-day breakout above SMA50 and shorts a 20-day breakdown below it", () => {
+    const up = proposeRuleDecision(context({ agentId: "richard-dennis", assets: { SOL: { price: 125 } } }));
+    const down = proposeRuleDecision(context({ agentId: "richard-dennis", assets: { XRP: { price: 70 } } }));
 
-    expect(proposal?.decision).toMatchObject({ action: "BUY", symbol: "SOL", allocationPercent: 15 });
-    expect(proposal?.basis[0]).toContain("55-day high");
+    expect(up?.decision).toMatchObject({ action: "BUY", symbol: "SOL", allocationPercent: 15 });
+    expect(up?.basis[0]).toContain("20-day high");
+    expect(down?.decision).toMatchObject({ action: "SHORT", symbol: "XRP" });
   });
 
-  it("Turtle exits a long below the 20-day low before taking a new breakout", () => {
+  it("Turtle exits a long below the 10-day low before taking a new breakout", () => {
     const proposal = proposeRuleDecision(
       context({ agentId: "richard-dennis", assets: { SOL: { price: 125 }, ETH: { price: 78 } }, positions: [held("ETH", 20, 78)] })
     );
@@ -99,7 +104,7 @@ describe("rule cores", () => {
     expect(proposal?.decision).toMatchObject({ action: "SELL", symbol: "ETH", allocationPercent: 15 / 0.2 });
   });
 
-  it("Donchian shorts a 30-day breakdown only when BTC is under SMA100", () => {
+  it("Donchian shorts a 20-day breakdown only when BTC is under SMA100", () => {
     const bearish = proposeRuleDecision(
       context({ agentId: "richard-donchian", assets: { BTC: { price: 90 }, XRP: { price: 70 } } })
     );
@@ -118,25 +123,51 @@ describe("rule cores", () => {
     expect(btcDown?.decision.action).toBe("HOLD");
   });
 
-  it("Elon only adds during the daily rebalance window but exits any hour", () => {
-    const ranked = { ETH: { change7d: 10 }, SOL: { change7d: 6 }, BNB: { change7d: -3 } };
-    const night = proposeRuleDecision(context({ agentId: "momentum-alpha", assets: ranked }));
-    const afternoon = proposeRuleDecision(context({ agentId: "momentum-alpha", assets: ranked, timestamp: "2026-11-06T15:00:00.000Z" }));
+  it("Elon longs weekly leaders above SMA50 and shorts laggards below it", () => {
+    const ranked = { ETH: { change7d: 10 }, SOL: { change7d: 6 }, BNB: { price: 90, change7d: -3 } };
+    const first = proposeRuleDecision(context({ agentId: "momentum-alpha", assets: ranked }));
+    const afterLongs = proposeRuleDecision(
+      context({ agentId: "momentum-alpha", assets: ranked, positions: [held("ETH", 25), held("SOL", 25)] })
+    );
     const exit = proposeRuleDecision(
-      context({ agentId: "momentum-alpha", assets: ranked, timestamp: "2026-11-06T15:00:00.000Z", positions: [held("BNB", 20)] })
+      context({ agentId: "momentum-alpha", assets: ranked, timestamp: "2026-11-06T15:00:00.000Z", positions: [held("BNB", 20, 90)] })
     );
 
-    expect(night?.decision).toMatchObject({ action: "BUY", symbol: "ETH" });
-    expect(afternoon?.decision.action).toBe("HOLD");
+    expect(first?.decision).toMatchObject({ action: "BUY", symbol: "ETH" });
+    expect(afterLongs?.decision).toMatchObject({ action: "SHORT", symbol: "BNB" });
     expect(exit?.decision).toMatchObject({ action: "SELL", symbol: "BNB" });
   });
 
-  it("Buffett trims an all-BTC book toward the 60% core", () => {
-    const proposal = proposeRuleDecision(
-      context({ agentId: "warren-buffett", positions: [held("BTC", 100)], withHeadroom: false })
+  it("Livermore trades 10-day breakouts and breakdowns with the asset's SMA50", () => {
+    const up = proposeRuleDecision(context({ agentId: "jesse-livermore", assets: { SOL: { price: 125 } } }));
+    const down = proposeRuleDecision(context({ agentId: "jesse-livermore", assets: { XRP: { price: 70 } } }));
+    const againstTrend = proposeRuleDecision(
+      context({ agentId: "jesse-livermore", assets: { SOL: { price: 125, trend: trend({ sma50: 130 }) } } })
     );
 
-    expect(proposal?.decision).toMatchObject({ action: "SELL", symbol: "BTC", allocationPercent: 40 });
+    expect(up?.decision).toMatchObject({ action: "BUY", symbol: "SOL", allocationPercent: 15 });
+    expect(down?.decision).toMatchObject({ action: "SHORT", symbol: "XRP" });
+    expect(againstTrend?.decision.action).toBe("HOLD");
+  });
+
+  it("Jones goes long above SMA50 and short below it, and holds while the side is unchanged", () => {
+    const regime = {
+      ETH: { price: 130, trend: trend({ return30dPercent: 10 }) },
+      XRP: { price: 70, trend: trend({ return30dPercent: -10 }) },
+    };
+    const first = proposeRuleDecision(context({ agentId: "paul-tudor-jones", assets: regime }));
+    const second = proposeRuleDecision(context({ agentId: "paul-tudor-jones", assets: regime, positions: [held("ETH", 30, 130)] }));
+    const holding = proposeRuleDecision(
+      context({ agentId: "paul-tudor-jones", assets: { XRP: { price: 95, trend: trend({ return30dPercent: 1 }) } }, positions: [held("XRP", -30, 95)] })
+    );
+    const flipped = proposeRuleDecision(
+      context({ agentId: "paul-tudor-jones", assets: { XRP: { price: 105 } }, positions: [held("XRP", -30, 105)] })
+    );
+
+    expect(first?.decision).toMatchObject({ action: "BUY", symbol: "ETH" });
+    expect(second?.decision).toMatchObject({ action: "SHORT", symbol: "XRP" });
+    expect(holding?.decision.action).toBe("HOLD");
+    expect(flipped?.decision).toMatchObject({ action: "SELL", symbol: "XRP" });
   });
 });
 

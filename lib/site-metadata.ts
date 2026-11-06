@@ -67,7 +67,7 @@ export const PAGE_SEO: Record<
   agents: {
     title: "Agents",
     description:
-      "Six Gemini traders (momentum, Turtle, Donchian, Livermore, Simons, Buffett) on the same live CoinMarketCap snapshot.",
+      "Six Gemini traders (momentum, Turtle, Donchian, Livermore, Jones, Simons) on the same live CoinMarketCap snapshot.",
     path: "/agents",
   },
   activity: {

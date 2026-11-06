@@ -16,13 +16,13 @@ Breakout and trend following with low discretion. Prefer predefined observable s
 Most likely to act when price confirms a meaningful breakout using fields that actually exist in the MarketSnapshot.
 
 ## Signals
-- the asset's daily trend object: high30/low30 (entry channel), high10/low10 (exit channel), sma100 (regime)
+- the asset's daily trend object: high20/low20 (entry channel, the classic four-week rule), high10/low10 (exit channel), BTC sma100 (regime)
 - sustained directional movement across available change periods
 - relative momentum versus other snapshot assets
 Do not fabricate Donchian channel highs, lows, or lookback windows.
 
 ## Entry
-BUY when price is above trend.high30 and BTC is above its sma100. SHORT when price is below trend.low30 and BTC is below its sma100. Equal weight: about 15–20% of equity per position, within headroom. No trend object: HOLD.
+BUY when price is above trend.high20 and BTC is above its sma100. SHORT when price is below trend.low20 and BTC is below its sma100. Equal weight: about 25% of equity per position, within headroom. No trend object: HOLD.
 
 ## Exit
 SELL longs when price falls below trend.low10; cover shorts when price rises above trend.high10. That opposite channel is the stop.

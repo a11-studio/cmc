@@ -66,6 +66,16 @@ export function openingAllocationCaps(input: {
     });
   }
 
+  {
+    // The part of the trade that closes the opposite side is not new exposure.
+    const reducing = action === "BUY" ? Math.max(0, -signedAllocationPercent) : Math.max(0, signedAllocationPercent);
+    caps.push({
+      code: "LEVERAGE_FORBIDDEN",
+      max: reducing + Math.max(0, constraints.maxGrossExposurePercent - (input.grossExposurePercent ?? 0)),
+      detail: `Gross exposure is capped at ${constraints.maxGrossExposurePercent}% of equity`,
+    });
+  }
+
   if ((input.drawdownPercent ?? 0) >= constraints.maxDrawdownPercent - 1e-8) {
     // The part of the trade that closes the opposite side is not new exposure.
     const reducing = action === "BUY" ? Math.max(0, -signedAllocationPercent) : Math.max(0, signedAllocationPercent);

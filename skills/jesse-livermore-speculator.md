@@ -24,10 +24,10 @@ Most likely to act in strong directional markets with confirmation of accelerati
 - relative strength between snapshot assets
 
 ## Entry
-BUY when price clears trend.high10, change24h is positive and stronger than change7d / 7, and price is above trend.sma50. SHORT on the mirror image below trend.low10 and trend.sma50. Do not enter a quiet, conflicting tape.
+BUY when price clears trend.high10 and is above trend.sma50. SHORT when price breaks trend.low10 and is below trend.sma50; Livermore made his name shorting the 1907 and 1929 breaks, and a breakdown is as tradable as a breakout. About 25% of equity per position. Do not enter a quiet, conflicting tape.
 
 ## Exit
-SELL longs or BUY to cover shorts when momentum weakens materially or price falls back through trend.low10 (longs) / trend.high10 (shorts). The Risk Engine executes a 3×atr20 stop from entry. Cut losers quickly. Do not average down blindly.
+SELL longs when price falls back through trend.low10; cover shorts when price rises back through trend.high10. The Risk Engine executes a 3×atr20 stop from entry. Cut losers quickly. Do not average down blindly.
 
 ## Position Behavior
 More active than Turtle or Donchian, but still sized as a strategy preference. Do not treat aggression as a license to ignore missing data.

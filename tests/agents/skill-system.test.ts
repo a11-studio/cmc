@@ -88,8 +88,8 @@ describe("agent skill registry", () => {
       "richard-dennis",
       "richard-donchian",
       "jesse-livermore",
+      "paul-tudor-jones",
       "jim-simons",
-      "warren-buffett",
     ]);
 
     for (const agent of ARENA_AGENTS) {
@@ -143,11 +143,11 @@ describe("agent skill registry", () => {
       "richard-dennis",
       "richard-donchian",
       "jesse-livermore",
+      "paul-tudor-jones",
       "jim-simons",
-      "warren-buffett",
     ]);
     expect(getAgentDefinition("jim-simons").strategyName).toBe("The Quant");
-    expect(getAgentDefinition("warren-buffett").strategyName).toBe("The Value Compounder");
+    expect(getAgentDefinition("paul-tudor-jones").strategyName).toBe("The Macro Trader");
   });
 
   it("does not mark sample or ready agents as LIVE", () => {
@@ -157,8 +157,8 @@ describe("agent skill registry", () => {
       "richard-dennis",
       "richard-donchian",
       "jesse-livermore",
+      "paul-tudor-jones",
       "jim-simons",
-      "warren-buffett",
     ];
 
     expect(roster.filter((agent) => agent.runtimeStatus === "LIVE").map((agent) => agent.id)).toEqual(liveIds);
@@ -341,8 +341,8 @@ describe("multi-agent cycle abstraction", () => {
   it("still blocks a strategy agent when Risk Engine rejects the decision", async () => {
     const execute = vi.fn(executePaperDecision);
     const result = await runAgentCycle({
-      agentId: "warren-buffett",
-      cycleId: "buffett-block",
+      agentId: "paul-tudor-jones",
+      cycleId: "jones-block",
       deps: deps({
         generateTradeDecision: vi.fn(async () =>
           paperDecision({

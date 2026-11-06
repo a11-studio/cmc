@@ -12,6 +12,12 @@ export const DEFAULT_RISK_CONSTRAINTS = {
    * 30% on both return and drawdown for the trend followers in that replay.
    */
   drawdownExposureCapPercent: 50 as number,
+  /**
+   * Gross exposure (sum of |position| as percent of equity) after a new long or
+   * short. Longs were already bounded by cash, shorts were not: a short adds cash,
+   * so three Turtle shorts reached 116% of equity in the Season 1 replay.
+   */
+  maxGrossExposurePercent: 100 as number,
   maxOpenPositions: 3,
   leverage: false as const,
   shorting: true,

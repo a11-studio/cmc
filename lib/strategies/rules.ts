@@ -37,7 +37,6 @@ type RuleBook = {
 };
 
 const MIN_TRADE_PERCENT = 1;
-const ROTATION_REBALANCE_HOURS = 6;
 const TOP_UP_GAP_PERCENT = 2;
 /**
  * Positions smaller than this are leftovers (for example from the model-only era)
@@ -112,97 +111,143 @@ function withTrend(context: DecisionContext): { symbol: SupportedSymbol; price: 
   });
 }
 
-/** Turtle System 2: 55-day breakout, 20-day exit, ~5% equity risk per 2N, per-asset SMA100 regime. */
+type Target = { target: number; reason: string };
+type Targets = Partial<Record<SupportedSymbol, Target>>;
+
+/**
+ * Turn signed target allocations into one-per-cycle candidates, exactly as the
+ * Season 1 research replay did: close positions whose target flipped side or went
+ * to zero, trim clear overweights, then enter or top up toward the target.
+ */
+function fromTargets(context: DecisionContext, targets: Targets): Candidate[] {
+  const out: Candidate[] = [];
+
+  for (const symbol of SUPPORTED_SYMBOLS) {
+    const held = allocation(context, symbol);
+    const wanted = targets[symbol];
+    const target = wanted?.target ?? 0;
+
+    if (Math.abs(held) < 0.5 && Math.abs(target) < 0.5) {
+      continue;
+    }
+
+    if (Math.abs(held) >= 0.5 && (Math.sign(held) !== Math.sign(target) || target === 0)) {
+      out.push(exitCandidate(symbol, held, wanted?.reason ?? `${symbol} no longer meets the rule: close the position`));
+      continue;
+    }
+
+    if (Math.abs(held) > Math.abs(target) + 5) {
+      out.push({
+        priority: 1,
+        strength: Math.abs(held) - Math.abs(target),
+        action: "SELL",
+        symbol,
+        allocationPercent: round(((Math.abs(held) - Math.abs(target)) / Math.abs(held)) * 100),
+        reason: wanted?.reason ?? `${symbol} trimmed toward ${round(Math.abs(target))}%`,
+      });
+      continue;
+    }
+
+    const gap = Math.abs(target) - Math.abs(held);
+
+    if (gap > TOP_UP_GAP_PERCENT && wanted) {
+      out.push({ priority: 2, strength: gap, action: target > 0 ? "BUY" : "SHORT", symbol, allocationPercent: round(gap), reason: wanted.reason });
+    }
+  }
+
+  return out;
+}
+
+function above(found: AssetSnapshot | undefined, key: "sma50" | "sma100" | "sma200"): boolean {
+  const level = found?.trend?.[key];
+  return Boolean(found && level && found.price > level);
+}
+
+function below(found: AssetSnapshot | undefined, key: "sma50" | "sma100" | "sma200"): boolean {
+  const level = found?.trend?.[key];
+  return Boolean(found && level && found.price < level);
+}
+
+/**
+ * Channel breakout in both directions with an opposite-channel exit. Shared by
+ * Turtle (20/10, ATR-sized, per-asset SMA50), Donchian (20/10, 25%, BTC SMA100 regime)
+ * and Livermore (10/10, 25%, per-asset SMA50).
+ */
+function channelTargets(
+  context: DecisionContext,
+  options: {
+    entry: "10" | "20";
+    size: (trend: AssetTrend) => number | undefined;
+    regime: "asset-sma50" | "btc-sma100";
+    label: string;
+  }
+): Targets {
+  const targets: Targets = {};
+  const btcUp = btcAbove(context, "sma100");
+
+  for (const { symbol, price, trend, snapshot } of withTrend(context)) {
+    const size = options.size(trend);
+
+    if (size == null) {
+      continue;
+    }
+
+    const held = allocation(context, symbol);
+    const high = options.entry === "10" ? trend.high10 : trend.high20;
+    const low = options.entry === "10" ? trend.low10 : trend.low20;
+    const okLong = options.regime === "btc-sma100" ? btcUp === true : above(snapshot, "sma50");
+    const okShort = options.regime === "btc-sma100" ? btcUp === false : below(snapshot, "sma50");
+    const regimeName = options.regime === "btc-sma100" ? "BTC SMA100" : `${symbol} SMA50`;
+
+    if (held > 0.5) {
+      targets[symbol] =
+        trend.low10 != null && price < trend.low10
+          ? { target: 0, reason: `${symbol} fell below its 10-day low ${trend.low10}: ${options.label} exit` }
+          : { target: size, reason: `${symbol} ${options.label} long still on: sizing to ${round(size)}%` };
+    } else if (held < -0.5) {
+      targets[symbol] =
+        trend.high10 != null && price > trend.high10
+          ? { target: 0, reason: `${symbol} rose above its 10-day high ${trend.high10}: ${options.label} exit` }
+          : { target: -size, reason: `${symbol} ${options.label} short still on: sizing to ${round(size)}%` };
+    } else if (high != null && price > high && okLong) {
+      targets[symbol] = { target: size, reason: `${symbol} broke its ${options.entry}-day high ${high} with ${regimeName} up` };
+    } else if (low != null && price < low && okShort) {
+      targets[symbol] = { target: -size, reason: `${symbol} broke its ${options.entry}-day low ${low} with ${regimeName} down` };
+    }
+  }
+
+  return targets;
+}
+
+/** Turtle System 1: 20-day breakout either way, 10-day exit, ~5% equity risk per 2N (max 33%), per-asset SMA50. */
 const turtle: RuleBook = {
   timeHorizon: "MEDIUM",
   candidates(context) {
-    const out: Candidate[] = [];
-
-    for (const { symbol, price, trend } of withTrend(context)) {
-      const held = allocation(context, symbol);
-      const { high55, low55, high20, low20, sma100, atr20Percent } = trend;
-
-      if (held > 0 && low20 && price < low20) {
-        out.push(exitCandidate(symbol, held, `${symbol} closed below its 20-day low ${low20}: Turtle exit`));
-        continue;
-      }
-
-      if (held < 0 && high20 && price > high20) {
-        out.push(exitCandidate(symbol, held, `${symbol} closed above its 20-day high ${high20}: Turtle exit`));
-        continue;
-      }
-
-      if (!sma100 || !atr20Percent) {
-        continue;
-      }
-
-      const size = Math.min(40, (5 / (2 * atr20Percent)) * 100);
-      const breakoutUp = high55 != null && price > high55 && price > sma100;
-      const breakoutDown = low55 != null && price < low55 && price < sma100;
-      const target = held > DUST_PERCENT || breakoutUp ? size : held < -DUST_PERCENT || breakoutDown ? -size : 0;
-
-      if (target === 0) {
-        continue;
-      }
-
-      const why = breakoutUp
-        ? `${symbol} broke its 55-day high ${high55} above SMA100`
-        : breakoutDown
-          ? `${symbol} broke its 55-day low ${low55} below SMA100`
-          : `${symbol} Turtle position still on: sizing to ${round(Math.abs(target))}% (2N risk 5%)`;
-      const candidate = towardTarget(symbol, held, target, breakoutUp || breakoutDown ? 10 : 1, why);
-
-      if (candidate) {
-        out.push(candidate);
-      }
-    }
-
-    return out;
+    return fromTargets(
+      context,
+      channelTargets(context, {
+        entry: "20",
+        size: (trend) => (trend.atr20Percent ? Math.min(33, (5 / (2 * trend.atr20Percent)) * 100) : undefined),
+        regime: "asset-sma50",
+        label: "Turtle",
+      })
+    );
   },
 };
 
-/** Donchian: 30-day breakout, 10-day opposite-channel exit, 20% equal weight, BTC SMA100 regime. */
+/** Donchian: 20-day breakout either way, 10-day exit, 25% equal weight, BTC SMA100 regime. */
 const donchian: RuleBook = {
   timeHorizon: "MEDIUM",
   candidates(context) {
-    const out: Candidate[] = [];
-    const btcUp = btcAbove(context, "sma100");
+    return fromTargets(context, channelTargets(context, { entry: "20", size: () => 25, regime: "btc-sma100", label: "channel" }));
+  },
+};
 
-    for (const { symbol, price, trend } of withTrend(context)) {
-      const held = allocation(context, symbol);
-      const { high30, low30, high10, low10 } = trend;
-
-      if (held > 0 && low10 && price < low10) {
-        out.push(exitCandidate(symbol, held, `${symbol} below its 10-day low ${low10}: channel exit`));
-        continue;
-      }
-
-      if (held < 0 && high10 && price > high10) {
-        out.push(exitCandidate(symbol, held, `${symbol} above its 10-day high ${high10}: channel exit`));
-        continue;
-      }
-
-      const breakoutUp = btcUp === true && high30 != null && price > high30;
-      const breakoutDown = btcUp === false && low30 != null && price < low30;
-      const target = held > DUST_PERCENT || breakoutUp ? 20 : held < -DUST_PERCENT || breakoutDown ? -20 : 0;
-
-      if (target === 0) {
-        continue;
-      }
-
-      const why = breakoutUp
-        ? `${symbol} above its 30-day high ${high30} with BTC over SMA100`
-        : breakoutDown
-          ? `${symbol} below its 30-day low ${low30} with BTC under SMA100`
-          : `${symbol} channel position on: equal weight 20%`;
-      const candidate = towardTarget(symbol, held, target, breakoutUp || breakoutDown ? 10 : 1, why);
-
-      if (candidate) {
-        out.push(candidate);
-      }
-    }
-
-    return out;
+/** Livermore: fast 10-day breakouts and breakdowns, 25% per position, only with the asset's SMA50. */
+const speculator: RuleBook = {
+  timeHorizon: "SHORT",
+  candidates(context) {
+    return fromTargets(context, channelTargets(context, { entry: "10", size: () => 25, regime: "asset-sma50", label: "speculator" }));
   },
 };
 
@@ -265,118 +310,100 @@ const quant: RuleBook = {
   },
 };
 
-/** Elon: cross-sectional 7-day momentum. BTC over SMA50: long the top 2; under it: short the bottom 2 at half size. */
+const ROTATION_K = 3;
+const ROTATION_SIZE = 25;
+
+/**
+ * Elon: rank all five by 7-day risk-adjusted momentum. Long the top 3 that are above
+ * their SMA50 and up on the week, short the bottom 3 that are below it and down on the
+ * week, 25% each. Holds a position while it stays in the top/bottom 4 on its side.
+ */
 const rotation: RuleBook = {
   timeHorizon: "SHORT",
   candidates(context) {
-    const ranked = withTrend(context)
-      .flatMap(({ symbol, trend, snapshot }) => {
-        const vol = trend.volatility30dPercent;
-        return snapshot.change7d != null && vol && vol > 0 ? [{ symbol, score: snapshot.change7d / (vol * Math.sqrt(7)) }] : [];
-      })
-      .sort((left, right) => right.score - left.score);
-    const btcUp = btcAbove(context, "sma50");
+    const ranked = SUPPORTED_SYMBOLS.map((symbol) => {
+      const found = asset(context, symbol);
+      const vol = found?.trend?.volatility30dPercent;
+      return { symbol, found, score: found && vol ? (found.change7d ?? 0) / (vol * Math.sqrt(7)) : 0 };
+    }).sort((left, right) => right.score - left.score);
+    const targets: Targets = {};
 
-    if (ranked.length < 3 || btcUp == null) {
-      return [];
-    }
-
-    const rankOf = (symbol: SupportedSymbol) => ranked.findIndex((row) => row.symbol === symbol);
-    const out: Candidate[] = [];
-
-    for (const symbol of SUPPORTED_SYMBOLS) {
+    ranked.forEach(({ symbol, found }, rank) => {
       const held = allocation(context, symbol);
-      const rank = rankOf(symbol);
-      const score = rank >= 0 ? ranked[rank].score : 0;
 
-      // Hysteresis: hold while still top-3 (longs) / bottom-3 (shorts), enter only top-2 / bottom-2.
-      if (held > 0 && (!btcUp || rank < 0 || rank > 2 || score <= 0)) {
-        out.push(exitCandidate(symbol, held, `${symbol} left the momentum leaders${btcUp ? "" : " (BTC under SMA50)"}`));
-      } else if (held < 0 && (btcUp || rank < 0 || rank < ranked.length - 3 || score >= 0)) {
-        out.push(exitCandidate(symbol, held, `${symbol} left the momentum laggards${btcUp ? " (BTC over SMA50)" : ""}`));
+      if (held > 0.5 && above(found, "sma50") && rank <= ROTATION_K) {
+        targets[symbol] = { target: held, reason: `${symbol} still ranks #${rank + 1} on 7-day momentum above SMA50` };
       }
-    }
 
-    // Rebalance once a day like the backtest: new entries and top-ups only in the first
-    // UTC hours (several cycles, since one trade is capped at 15% of equity). Exits above
-    // run every hour. Hourly rotation traded ~2,800 times in 17 months for no gain.
-    const hour = new Date(context.snapshot.timestamp).getUTCHours();
-
-    if (!(hour < ROTATION_REBALANCE_HOURS)) {
-      return out;
-    }
-
-    const targets = btcUp
-      ? ranked.slice(0, 2).filter((row) => row.score > 0).map((row) => ({ ...row, target: 50 }))
-      : ranked.slice(-2).filter((row) => row.score < 0).map((row) => ({ ...row, target: -25 }));
-
-    for (const row of targets) {
-      const held = allocation(context, row.symbol);
-      const candidate = towardTarget(
-        row.symbol,
-        held,
-        row.target,
-        Math.abs(row.score),
-        btcUp
-          ? `${row.symbol} ranks #${rankOf(row.symbol) + 1} on 7-day risk-adjusted momentum with BTC over SMA50`
-          : `${row.symbol} ranks last-${ranked.length - rankOf(row.symbol)} on 7-day momentum with BTC under SMA50`
-      );
-
-      if (candidate) {
-        out.push(candidate);
+      if (held < -0.5 && below(found, "sma50") && rank >= ranked.length - ROTATION_K - 1) {
+        targets[symbol] = { target: held, reason: `${symbol} still ranks #${rank + 1} on 7-day momentum below SMA50` };
       }
-    }
+    });
 
-    return out;
+    ranked.slice(0, ROTATION_K).forEach(({ symbol, found, score }, rank) => {
+      if (score > 0 && above(found, "sma50") && (found?.change7d ?? 0) > 0) {
+        targets[symbol] = { target: ROTATION_SIZE, reason: `${symbol} ranks #${rank + 1} on 7-day risk-adjusted momentum, above SMA50` };
+      }
+    });
+
+    ranked.slice(-ROTATION_K).forEach(({ symbol, found, score }) => {
+      if (score < 0 && below(found, "sma50") && (found?.change7d ?? 0) < 0) {
+        const rank = ranked.findIndex((row) => row.symbol === symbol);
+        targets[symbol] = { target: -ROTATION_SIZE, reason: `${symbol} ranks #${rank + 1} of ${ranked.length} on 7-day momentum, below SMA50` };
+      }
+    });
+
+    return fromTargets(context, targets);
   },
 };
 
-const BUFFETT_CORE: Record<SupportedSymbol, number> = { BTC: 60, ETH: 25, SOL: 5, BNB: 5, XRP: 5 };
+const REGIME_POSITIONS = 3;
+const REGIME_SIZE = 30;
 
-/** Buffett: long-only core 60/25/5/5/5; under an asset's SMA200 the core shrinks to 30% (Risk Engine trims). */
-const valueCore: RuleBook = {
-  timeHorizon: "LONG",
+/**
+ * Paul Tudor Jones: per-asset regime. Long assets above their SMA50 with a positive
+ * 30-day return, short assets below it with a negative one, 30% each in the three
+ * furthest from their average. Positions stay on while the asset is on the same side.
+ */
+const macroRegime: RuleBook = {
+  timeHorizon: "MEDIUM",
   candidates(context) {
-    const out: Candidate[] = [];
+    const scored = withTrend(context).flatMap(({ symbol, price, trend }) => {
+      if (!trend.sma50 || trend.return30dPercent == null) {
+        return [];
+      }
 
-    for (const { symbol, price, trend } of withTrend(context)) {
+      const distance = price / trend.sma50 - 1;
+      const long = distance > 0 && trend.return30dPercent > 0;
+      const short = distance < 0 && trend.return30dPercent < 0;
+      return long || short ? [{ symbol, distance, return30d: trend.return30dPercent }] : [];
+    });
+    const targets: Targets = {};
+
+    for (const row of [...scored].sort((left, right) => Math.abs(right.distance) - Math.abs(left.distance)).slice(0, REGIME_POSITIONS)) {
+      const side = row.distance > 0 ? "above" : "below";
+      targets[row.symbol] = {
+        target: Math.sign(row.distance) * REGIME_SIZE,
+        reason: `${row.symbol} is ${round(Math.abs(row.distance) * 100)}% ${side} its 50-day average with a ${round(row.return30d)}% 30-day return`,
+      };
+    }
+
+    for (const symbol of SUPPORTED_SYMBOLS) {
       const held = allocation(context, symbol);
+      const found = asset(context, symbol);
 
-      if (held < 0) {
-        out.push(exitCandidate(symbol, held, `${symbol} short is outside the long-only mandate`));
+      if (targets[symbol]) {
         continue;
       }
 
-      if (!trend.sma200) {
-        continue;
-      }
-
-      const above = price > trend.sma200;
-      const target = above ? BUFFETT_CORE[symbol] : Math.min(BUFFETT_CORE[symbol], 30);
-
-      // Turnover is a cost: trim only clear overweights, top up only clear gaps.
-      if (held > target + 15) {
-        out.push({
-          priority: 1,
-          strength: held - target,
-          action: "SELL",
-          symbol,
-          allocationPercent: round(((held - target) / held) * 100),
-          reason: `${symbol} is ${round(held)}% of the book against a ${target}% core weight`,
-        });
-        continue;
-      }
-
-      if (above) {
-        const candidate = towardTarget(symbol, held, target, target - held, `${symbol} above its 200-day average: top up toward the ${target}% core`);
-
-        if (candidate) {
-          out.push(candidate);
-        }
+      if (held > 0 && above(found, "sma50")) {
+        targets[symbol] = { target: held, reason: `${symbol} long stays on above its 50-day average` };
+      } else if (held < 0 && below(found, "sma50")) {
+        targets[symbol] = { target: held, reason: `${symbol} short stays on below its 50-day average` };
       }
     }
 
-    return out;
+    return fromTargets(context, targets);
   },
 };
 
@@ -385,7 +412,8 @@ const RULE_BOOKS: Record<string, RuleBook> = {
   "richard-donchian": donchian,
   "jim-simons": quant,
   "momentum-alpha": rotation,
-  "warren-buffett": valueCore,
+  "jesse-livermore": speculator,
+  "paul-tudor-jones": macroRegime,
 };
 
 export function hasRuleCore(agentId: string): boolean {

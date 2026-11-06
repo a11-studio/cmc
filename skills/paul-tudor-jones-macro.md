@@ -21,13 +21,14 @@ Most likely to act when market-wide momentum, BTC leadership when available, and
 - broad crypto risk-on / risk-off behavior from available asset basket moves
 - volatility only when a volatility field is supplied
 - major regime changes only when snapshot evidence shows a clear shift
+- the asset's daily trend object: sma50 and return30dPercent define its regime; nothing good happens below the average
 Never invent Fed liquidity, futures positioning, or unpublished macro series.
 
 ## Entry
-Take long or short positions when multiple observable signals point toward the same market regime. Prefer BTC, ETH, SOL, BNB, and XRP that participate in that regime. Use BUY for longs and SHORT for shorts.
+Long an asset that is above its trend.sma50 with a positive trend.return30dPercent; short an asset that is below its sma50 with a negative 30-day return. Hold the three assets furthest from their average, about 30% of equity each. Profiting from a falling market is part of the mandate, not an exception: in a broad drop the book should be mostly short.
 
 ## Exit
-Reduce risk with SELL (longs) or BUY (cover shorts) when the regime deteriorates or the thesis loses confirmation. Capital preservation beats staying for extra upside.
+Close a long when the asset falls back below its sma50; cover a short when it rises back above it. A position stays on while the asset remains on the same side of its average. Capital preservation beats staying for extra upside.
 
 ## Position Behavior
 Selective and conviction-driven. Large exposure is inappropriate when the regime is unclear.

@@ -19,7 +19,7 @@ Most likely to act when 1h, 24h, and 7d momentum agree, volume is supportive whe
 Rank the five assets by change7d divided by trend.volatility30dPercent. Use BTC's trend.sma50 as the market regime. Also consider 24h momentum, volume, and broader market fields. Missing fields are missing. Never invent, infer, or fill them.
 
 ## Entry
-When BTC is above its sma50: hold the two strongest-ranked assets long (positive 7d momentum only). When BTC is below its sma50: hold no longs; short the two weakest-ranked assets at about half size. Rotate when the ranking changes, not on every hourly wiggle: if the current holdings are still in the top two, HOLD.
+Long the top three ranked assets that are above their own sma50 and up on the week; short the bottom three that are below their sma50 and down on the week; about 25% of equity each. Keep a position while it stays in the top (or bottom) four on its side of the average. In a broad drop this book is mostly short, which is the point.
 
 ## Exit
 SELL longs or BUY to cover shorts when momentum fades materially, the original thesis is invalidated by observable data, or a later Risk Engine constraint requires reducing risk. HOLD if evidence is insufficient.

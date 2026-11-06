@@ -166,8 +166,8 @@ describe("protective exits", () => {
     expect(plans).toEqual([]);
   });
 
-  it("trims Buffett's core to 30% under the 200-day average, once", () => {
-    const constraints = resolveRiskConstraints("warren-buffett");
+  it("trims to trendExitMaxAllocationPercent under the filter average, once", () => {
+    const constraints = resolveRiskConstraints("jim-simons", { trendFilterSma: 200, trendExitMaxAllocationPercent: 30, protectiveStopAtr: 0 });
     const below200: MarketSnapshot = {
       ...snapshot(),
       assets: [{ symbol: "ETH", price: 2_000, trend: trend({ sma50: 2_500, sma200: 2_150, atr20: 100 }) }],

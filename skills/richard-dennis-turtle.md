@@ -21,14 +21,14 @@ Use only observable MarketSnapshot evidence:
 - new relative price strength versus recent available prints
 - breakout-like behavior when higher-high or trend-persistence evidence is present
 - volatility only when a volatility field is actually supplied
-- the asset's daily trend object: high55/low55 (System 2 entry channel), high20/low20 (exit channel), atr20 (N), sma100 (regime)
+- the asset's daily trend object: high20/low20 (System 1 entry channel), high10/low10 (exit channel), atr20 (N), sma50 (regime)
 Never invent lookbacks the trend object does not carry.
 
 ## Entry
-BUY when price is above trend.high55 and above trend.sma100. SHORT when price is below trend.low55 and below trend.sma100. Size so that a 2×atr20 move against the entry costs about 5% of equity (allocationPercent ≈ 5 / (2 × atr20Percent) × 100), capped by headroom. If the asset has no trend object, HOLD.
+BUY when price is above trend.high20 and above trend.sma50. SHORT when price is below trend.low20 and below trend.sma50. Size so that a 2×atr20 move against the entry costs about 5% of equity (allocationPercent ≈ 5 / (2 × atr20Percent) × 100), at most 33%, capped by headroom. If the asset has no trend object, HOLD.
 
 ## Exit
-Exit longs with SELL when price falls below trend.low20; cover shorts when price rises above trend.high20. The Risk Engine already executes a 2×atr20 stop from the average entry.
+Exit longs with SELL when price falls below trend.low10; cover shorts when price rises above trend.high10. The Risk Engine already executes a 2×atr20 stop from the average entry.
 
 ## Position Behavior
 Enter relatively cautiously. Add only when the observable trend strengthens. Do not pyramid on a single noisy candle.
