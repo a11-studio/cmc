@@ -29,7 +29,7 @@ A plain CoinMarketCap call returns a price. None of the following falls out of t
 - **The same snapshot produces different answers.** Each Gemini agent loads a strategy file (`skills/*.md`) — mandate, horizon, risk appetite. Identical input, divergent behaviour.
 - **The model does not get the last word.** `lib/risk/evaluate.ts` runs deterministic checks after every decision intent: max trade size (15% of equity), open position cap (3), daily loss limit (5%), max drawdown (15%), minimum cash, and concentration. Trades can be downsized or blocked; the rejection reason is stored.
 - **It compounds.** Portfolios and P&L persist in Supabase across cycles, so a 09:00 decision constrains 10:00.
-- **It runs unattended.** **GitHub Actions** triggers the production cycle every hour via a protected Vercel endpoint (`POST /api/agents/cycle` with `CRON_SECRET`). Cycles are claimed idempotently per UTC slot so retries cannot double-trade.
+- **It runs unattended.** **Supabase pg_cron** triggers the production cycle every hour (GitHub Actions as a backup) via a protected Vercel endpoint (`POST /api/agents/cycle` with `CRON_SECRET`). Cycles are claimed idempotently per UTC slot so retries cannot double-trade.
 - **It explains itself.** Agents post to the trading-floor chat; every decision page replays snapshot → rationale → risk → fill.
 
 ---
@@ -114,7 +114,7 @@ A seventh, rules-only BTC Liquidation Signal agent ran from Sep 22 to Nov 6, 202
 
 ```
 app/(terminal)/           THE ARENA UI — leaderboard, agents, decisions, activity, chat, research
-app/api/agents/cycle/     Hourly entry (GitHub Actions → Vercel)
+app/api/agents/cycle/     Hourly entry (Supabase pg_cron / GitHub Actions → Vercel)
 lib/market/cmc/           CMC client, normaliser, MarketSnapshot builder
 lib/agents/               Registry and skills
 lib/ai/                   Gemini decision engine
@@ -122,7 +122,7 @@ lib/agent/                Cycles, scheduling, durability
 lib/risk/                 Deterministic risk engine
 lib/paper/                Paper trading and portfolios
 supabase/migrations/      Agents, decisions, trades, chat
-.github/workflows/        hourly-cycle.yml
+.github/workflows/        hourly-cycle.yml (backup trigger)
 ```
 
 - **Stack** — Next.js 16 App Router, React 19, TypeScript, Tailwind v4, shadcn/ui  
@@ -153,7 +153,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `CMC_API_KEY` | Yes | CoinMarketCap Pro (server only) |
 | `GEMINI_API_KEY` | Yes | Six Gemini agents |
 | `NEXT_PUBLIC_SITE_URL` | Prod | Canonical URLs / OG (e.g. `https://thearena.buzz`) |
-| `CRON_SECRET` | Prod | Hourly cycle auth (match GitHub Actions secret) |
+| `CRON_SECRET` | Prod | Hourly cycle auth (match the Supabase Vault `arena_cron_secret` and the GitHub Actions secret) |
 | Supabase vars | No | Persistence + chat |
 
 See `.env.example` for the full list. Never put secrets in `NEXT_PUBLIC_*`.
@@ -167,7 +167,7 @@ curl -X POST http://localhost:3000/api/agents/cycle
 curl -X POST http://localhost:3000/api/agents/paul-tudor-jones/cycle
 ```
 
-**Production:** GitHub Actions workflow `.github/workflows/hourly-cycle.yml` (`0 * * * *` UTC) → `POST https://<your-deployment>/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>`.
+**Production:** Supabase pg_cron job `arena-hourly-agent-cycle` (`2 * * * *` UTC, `supabase/migrations/20261106150000_hourly_cycle_pg_cron.sql`) → `POST https://<your-deployment>/api/agents/cycle` with `Authorization: Bearer <CRON_SECRET>` read from Vault. GitHub Actions `.github/workflows/hourly-cycle.yml` (`23 * * * *`) is a backup; GitHub's schedule alone ran only every 4–8 hours.
 
 Manual run: GitHub → **Actions** → **Hourly agent cycle** → **Run workflow**.
 

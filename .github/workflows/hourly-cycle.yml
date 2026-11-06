@@ -1,8 +1,12 @@
 name: Hourly agent cycle
 
+# Backup trigger. The primary hourly trigger is Supabase pg_cron at :02
+# (supabase/migrations/20261106150000_hourly_cycle_pg_cron.sql); GitHub's schedule
+# runs late or not at all. Cycles are claimed per UTC hour, so a second trigger in
+# the same hour is skipped as a duplicate.
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "23 * * * *"
   workflow_dispatch:
 
 jobs:
