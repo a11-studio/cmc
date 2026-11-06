@@ -217,7 +217,7 @@ describe("Gemini skill injection", () => {
     });
 
     expect(contents).toContain("The Turtle");
-    expect(contents).toContain("Do not invent historical OHLC");
+    expect(contents).toContain("do not invent other lookbacks");
     expect(systemInstruction).toContain(skill);
     expect(systemInstruction).toContain("You cannot bypass the Risk Engine");
     expect(systemInstruction).toContain("Never invent data");

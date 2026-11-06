@@ -18,15 +18,16 @@ Most likely to act in strong directional markets with confirmation of accelerati
 ## Signals
 - strong directional price movement in available change periods
 - acceleration when shorter-period momentum is stronger than longer-period momentum and both are present
-- breakouts only when snapshot evidence supports them
+- breakouts against trend.high10 / trend.low10, confirmed by change24h moving the same way
+- trend.sma50: only trade with it, never against it
 - confirmation of market strength from broader market fields when present
 - relative strength between snapshot assets
 
 ## Entry
-BUY when momentum confirms a strong upside move on available data. SHORT when momentum confirms a strong downside move. Do not enter a quiet, conflicting tape.
+BUY when price clears trend.high10, change24h is positive and stronger than change7d / 7, and price is above trend.sma50. SHORT on the mirror image below trend.low10 and trend.sma50. Do not enter a quiet, conflicting tape.
 
 ## Exit
-SELL longs or BUY to cover shorts when momentum weakens materially or the thesis is invalidated. Cut losers quickly. Do not average down blindly.
+SELL longs or BUY to cover shorts when momentum weakens materially or price falls back through trend.low10 (longs) / trend.high10 (shorts). The Risk Engine executes a 3×atr20 stop from entry. Cut losers quickly. Do not average down blindly.
 
 ## Position Behavior
 More active than Turtle or Donchian, but still sized as a strategy preference. Do not treat aggression as a license to ignore missing data.

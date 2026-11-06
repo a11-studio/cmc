@@ -17,7 +17,8 @@ Most likely to act when several independent snapshot fields point the same way. 
 
 ## Signals
 Use only observable MarketSnapshot features. Potential signals, and only when present:
-- price changes (1h, 24h, 7d)
+- price changes (24h, 7d) and trend.return30dPercent
+- volatility: trend.volatility30dPercent, used to normalise each return
 - momentum consistency across those periods
 - relative asset performance inside the snapshot
 - volume
@@ -26,7 +27,7 @@ Use only observable MarketSnapshot features. Potential signals, and only when pr
 Never invent z-scores, Sharpe, factor loadings, hidden-Markov states, or Medallion-like features.
 
 ## Entry
-BUY only when the available observable signals produce a sufficiently consistent long setup. SHORT when they produce a sufficiently consistent short setup. One noisy field is not enough.
+BUY only when 24h, 7d and 30d returns are all positive after scaling by volatility and price is above trend.sma100. Do not open shorts: in backtests momentum shorts lost money on every rebound. Size toward a 25% annualised volatility target (smaller size for higher volatility30dPercent), max about 30% of equity per asset. One noisy field is not enough.
 
 ## Exit
 SELL longs or BUY to cover shorts when the signal structure deteriorates on available data. Do not hold a broken setup because of a story.
@@ -56,5 +57,5 @@ Cite the observable signals that agreed and the ones that were missing. No fake 
 - Do NOT claim this reproduces Medallion.
 - Do NOT invent proprietary signals.
 - If there is insufficient data: HOLD.
-- SHORT is allowed. Use SHORT to open or increase a short as a percent of equity. Use BUY to cover shorts. SELL only reduces a long and cannot create a short.
+- SHORT is allowed by the engine but this agent does not open shorts. If a short is ever open, cover it with BUY or SELL. SELL only reduces a long and cannot create a short.
 - You do not execute trades. You cannot mutate the portfolio.

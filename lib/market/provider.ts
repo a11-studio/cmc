@@ -1,6 +1,7 @@
 import "server-only";
 
 import { CoinMarketCapProvider } from "@/lib/market/cmc/adapter";
+import { loadDailyCandles } from "@/lib/market/daily-candles";
 import { MarketDataError } from "@/lib/market/errors";
 import { hasServerEnv } from "@/lib/env.server";
 import type { MarketDataProvider } from "@/lib/market/types";
@@ -12,5 +13,6 @@ export function createMarketDataProvider(): MarketDataProvider {
 
   return new CoinMarketCapProvider({
     apiKey: process.env.CMC_API_KEY ?? "",
+    loadDailyCandles: (symbols, now) => loadDailyCandles(symbols, { now }),
   });
 }

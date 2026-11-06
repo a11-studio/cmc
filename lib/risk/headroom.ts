@@ -1,4 +1,4 @@
-import type { SupportedSymbol } from "@/lib/market/types";
+import type { MarketSnapshot, SupportedSymbol } from "@/lib/market/types";
 import { isClosedQuantity } from "@/lib/paper/portfolio";
 import type { TradeAction } from "@/lib/paper/types";
 import {
@@ -7,6 +7,7 @@ import {
   tightestCap,
 } from "@/lib/risk/caps";
 import { DEFAULT_RISK_CONSTRAINTS, type RiskConstraints } from "@/lib/risk/constraints";
+import { trendFilterDetail, trendRegime, type TrendRegime } from "@/lib/risk/trend";
 
 const PERCENT_EPSILON = 1e-8;
 
@@ -30,6 +31,8 @@ export type SymbolHeadroom = {
   /** Percent of the open position a SELL can close (long) or cover (short). */
   maxSellPercentOfPosition: number;
   maxShortPercentOfEquity: number;
+  /** Trend regime used by the trend filter this cycle, when trend data is available. */
+  trend?: TrendRegime;
 };
 
 export type TradingHeadroom = {
@@ -59,6 +62,8 @@ export function computeTradingHeadroom(input: {
   portfolio: HeadroomPortfolio;
   symbols: readonly SupportedSymbol[];
   constraints?: Partial<RiskConstraints>;
+  /** When present, the trend filter is applied exactly as the risk engine will. */
+  snapshot?: MarketSnapshot;
 }): TradingHeadroom {
   const constraints = { ...DEFAULT_RISK_CONSTRAINTS, ...input.constraints };
   const { cash, equity, positions } = input.portfolio;
@@ -67,7 +72,10 @@ export function computeTradingHeadroom(input: {
   const openPositions = positions.filter((position) => !isClosedQuantity(position.quantity)).length;
   const atPositionLimit = openPositions >= constraints.maxOpenPositions;
 
+  const trendNotes: string[] = [];
+
   const perSymbol = input.symbols.map((symbol) => {
+    const regime = input.snapshot ? trendRegime(input.snapshot, symbol, constraints.trendFilterSma) : undefined;
     const existing = positions.find((position) => position.symbol === symbol);
     const isOpen = existing != null && !isClosedQuantity(existing.quantity);
     const signedAllocationPercent = isOpen ? existing.allocationPercent : 0;
@@ -82,6 +90,7 @@ export function computeTradingHeadroom(input: {
             cashPercent,
             signedAllocationPercent,
             constraints,
+            trendRegime: regime,
           })
         );
 
@@ -95,6 +104,7 @@ export function computeTradingHeadroom(input: {
               cashPercent,
               signedAllocationPercent,
               constraints,
+              trendRegime: regime,
             })
           );
 
@@ -121,8 +131,13 @@ export function computeTradingHeadroom(input: {
           ])
         : 0;
 
+    if (regime) {
+      trendNotes.push(trendFilterDetail(symbol, regime, constraints.trendFilterSma));
+    }
+
     return {
       symbol,
+      ...(regime ? { trend: regime } : {}),
       maxBuyPercentOfEquity: round(maxBuy),
       maxSellPercentOfPosition: round(maxSell),
       maxShortPercentOfEquity: round(maxShort),
@@ -162,6 +177,10 @@ export function computeTradingHeadroom(input: {
     notes.push(
       "Open shorts can be reduced with SELL (percent of the short position) or BUY (percent of equity to spend). SELL does not apply to symbols you are not short."
     );
+  }
+
+  if (trendNotes.length > 0) {
+    notes.push(`Trend filter (${constraints.trendFilterSma}-day average): ${trendNotes.join("; ")}.`);
   }
 
   if (atPositionLimit) {

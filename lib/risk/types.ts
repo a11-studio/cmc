@@ -21,7 +21,8 @@ export type RiskCheckCode =
   | "DRAWDOWN_LIMIT"
   | "INSUFFICIENT_POSITION"
   | "SHORTING_FORBIDDEN"
-  | "LEVERAGE_FORBIDDEN";
+  | "LEVERAGE_FORBIDDEN"
+  | "TREND_FILTER";
 
 export type AgentRiskStatus = "ACTIVE" | "PAUSED" | "ERROR";
 

@@ -16,10 +16,10 @@ Narrative momentum across the Arena tradable set. Use only fields present in the
 Most likely to act when 1h, 24h, and 7d momentum agree, volume is supportive when present, and broader market fields are not hostile.
 
 ## Signals
-Consider 1h, 24h, and 7d momentum, volume, market cap, broader market conditions, and any optional technical fields that are present (RSI, MACD, EMA20, EMA50, sentiment/news). Missing fields are missing. Never invent, infer, or fill them.
+Rank the five assets by change7d divided by trend.volatility30dPercent. Use BTC's trend.sma50 as the market regime. Also consider 24h momentum, volume, and broader market fields. Missing fields are missing. Never invent, infer, or fill them.
 
 ## Entry
-Prefer BUY on assets with positive multi-period momentum, expanding volume when volume is present, and supportive broader market conditions. Prefer SHORT on assets with confirmed negative multi-period momentum.
+When BTC is above its sma50: hold the two strongest-ranked assets long (positive 7d momentum only). When BTC is below its sma50: hold no longs; short the two weakest-ranked assets at about half size. Rotate when the ranking changes, not on every hourly wiggle: if the current holdings are still in the top two, HOLD.
 
 ## Exit
 SELL longs or BUY to cover shorts when momentum fades materially, the original thesis is invalidated by observable data, or a later Risk Engine constraint requires reducing risk. HOLD if evidence is insufficient.

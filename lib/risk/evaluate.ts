@@ -8,6 +8,7 @@ import {
   roundReasonPercent,
 } from "@/lib/risk/caps";
 import { DEFAULT_RISK_CONSTRAINTS, type RiskConstraints } from "@/lib/risk/constraints";
+import { trendRegime } from "@/lib/risk/trend";
 import type {
   AgentRiskStatus,
   RiskCheck,
@@ -285,6 +286,7 @@ export function evaluateRisk(input: RiskInput): RiskResult {
           cashPercent: (portfolio.cash / portfolio.equity) * 100,
           signedAllocationPercent: signedAlloc,
           constraints,
+          trendRegime: trendRegime(snapshot, symbol, constraints.trendFilterSma),
         })
       : [
           ...closingAllocationCaps({
@@ -327,7 +329,9 @@ export function evaluateRisk(input: RiskInput): RiskResult {
             ? "Rejected: maximum trade size exceeded"
             : limiting === "LEVERAGE_FORBIDDEN"
               ? "Rejected: leverage is not allowed"
-              : `Rejected: ${limitingDetail}`;
+              : limiting === "TREND_FILTER"
+                ? `Rejected: trend filter. ${limitingDetail}`
+                : `Rejected: ${limitingDetail}`;
 
     return blocked(decision, limiting, reason, checks);
   }

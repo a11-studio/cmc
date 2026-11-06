@@ -12,6 +12,7 @@ import {
   type AgentCycleResult,
   type AgentCycleStatus,
   type AgentCycleTrace,
+  type ProtectiveExitFill,
   type RunAgentCycleInput,
 } from "@/lib/agent/types";
 import { getAgentDefinition, toAgentIdentity } from "@/lib/agents/registry";
@@ -23,6 +24,7 @@ import { markToMarket } from "@/lib/paper/portfolio";
 import { isPaperTradingError } from "@/lib/paper/errors";
 import type { PaperAccount, PaperExecution, PaperValuation, TradeDecision } from "@/lib/paper/types";
 import { resolveRiskConstraints } from "@/lib/risk/agent-constraints";
+import { planProtectiveExits } from "@/lib/risk/protective-exits";
 import type { RiskResult } from "@/lib/risk/types";
 
 function cloneAccount(account: PaperAccount): PaperAccount {
@@ -173,7 +175,8 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
     return skipped(`Cycle ${cycleId} is already in progress`, deps.store.findCycle(cycleId));
   }
 
-  const previousAccount = cloneAccount(deps.store.getAccount());
+  let previousAccount = cloneAccount(deps.store.getAccount());
+  const protectiveExits: ProtectiveExitFill[] = [];
   push("CYCLE_STARTED", `${agent.strategy} cycle ${cycleId}`);
 
   let snapshot: MarketSnapshot | null = null;
@@ -219,9 +222,35 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
       return finish();
     }
 
-    const floorChat = deps.loadFloorChatForAgent ? await deps.loadFloorChatForAgent(agent.id) : undefined;
-
     const riskConstraints = resolveRiskConstraints(agent.id);
+
+    for (const plan of planProtectiveExits({ snapshot, positions: valuation.positions, constraints: riskConstraints })) {
+      let exit: PaperExecution;
+
+      try {
+        exit = deps.executePaperDecision(previousAccount, plan.decision, snapshot);
+      } catch (error) {
+        push("PROTECTIVE_EXIT", `Skipped (${failureFrom(error, "EXECUTION").message}): ${plan.reason}`);
+        continue;
+      }
+
+      if (!exit.ok) {
+        push("PROTECTIVE_EXIT", `Skipped (${exit.reason}): ${plan.reason}`);
+        continue;
+      }
+
+      previousAccount = cloneAccount(exit.account);
+      valuation = exit.valuation;
+      deps.store.commitAccount(cloneAccount(exit.account), exit.valuation.portfolio.equity);
+
+      if (exit.trade) {
+        protectiveExits.push({ kind: plan.kind, reason: plan.reason, trade: { ...exit.trade } });
+      }
+
+      push("PROTECTIVE_EXIT", plan.reason);
+    }
+
+    const floorChat = deps.loadFloorChatForAgent ? await deps.loadFloorChatForAgent(agent.id) : undefined;
 
     const decisionContext = createDecisionContext({
       agentId: agent.id,
@@ -329,6 +358,7 @@ export async function runAgentCycle(input: RunAgentCycleInput): Promise<AgentCyc
       startedAt,
       completedAt,
       ...(failure ? { failure } : {}),
+      ...(protectiveExits.length > 0 ? { protectiveExits } : {}),
       trace: traceOf({
         agentId: agent.id,
         strategy: agent.strategy,

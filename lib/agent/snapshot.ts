@@ -4,7 +4,7 @@ export function cloneMarketSnapshot(snapshot: MarketSnapshot, cycleId: string): 
   return {
     cycleId,
     timestamp: snapshot.timestamp,
-    assets: snapshot.assets.map((asset) => ({ ...asset })),
+    assets: snapshot.assets.map((asset) => ({ ...asset, ...(asset.trend ? { trend: { ...asset.trend } } : {}) })),
     market: { ...snapshot.market },
     ...(snapshot.news ? { news: snapshot.news.map((item) => ({ ...item })) } : {}),
   };
@@ -12,6 +12,10 @@ export function cloneMarketSnapshot(snapshot: MarketSnapshot, cycleId: string): 
 
 export function freezeMarketSnapshot(snapshot: MarketSnapshot): MarketSnapshot {
   for (const asset of snapshot.assets) {
+    if (asset.trend) {
+      Object.freeze(asset.trend);
+    }
+
     Object.freeze(asset);
   }
 

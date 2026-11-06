@@ -366,3 +366,47 @@ describe("Momentum Alpha agent cycle", () => {
     expect(store.listCycles()).toEqual([]);
   });
 });
+
+describe("protective exits in the cycle", () => {
+  const downtrendSnapshot = () =>
+    snapshot({
+      assets: [
+        { symbol: "BTC", price: 50_000 },
+        {
+          symbol: "ETH",
+          price: 2_000,
+          trend: { source: "binance", asOfDay: "2026-09-16", sma50: 2_400, atr20: 80 },
+        },
+      ],
+    });
+
+  it("closes a long against the trend before the agent decides", async () => {
+    const account = createPaperAccount();
+    const opened = executePaperDecision(
+      account,
+      decision({ action: "BUY", symbol: "ETH", allocationPercent: 20 }),
+      snapshot({ cycleId: "open", assets: [{ symbol: "ETH", price: 2_100 }] })
+    );
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) {
+      return;
+    }
+
+    const generate = vi.fn(async () => decision());
+    const { result } = await run({
+      store: createInMemoryAgentStore({ account: opened.account }),
+      getMarketSnapshot: vi.fn(async () => downtrendSnapshot()),
+      generateTradeDecision: generate,
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    expect(result.protectiveExits).toEqual([
+      expect.objectContaining({ kind: "TREND", trade: expect.objectContaining({ side: "SELL", symbol: "ETH" }) }),
+    ]);
+    expect(result.account.positions).toEqual([]);
+    expect(result.events.map((event) => event.type)).toContain("PROTECTIVE_EXIT");
+
+    const context = (generate.mock.calls as unknown as [{ portfolio: { positions: unknown[] } }][])[0][0];
+    expect(context.portfolio.positions).toEqual([]);
+  });
+});

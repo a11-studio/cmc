@@ -1,4 +1,5 @@
 import type { RiskConstraints } from "@/lib/risk/constraints";
+import { trendFilterDetail, type TrendRegime } from "@/lib/risk/trend";
 import type { RiskCheckCode } from "@/lib/risk/types";
 
 /** An upper bound on allocationPercent, plus the check it maps to when it binds. */
@@ -22,8 +23,10 @@ export function openingAllocationCaps(input: {
   cashPercent: number;
   signedAllocationPercent: number;
   constraints: RiskConstraints;
+  /** Trend regime for the symbol under constraints.trendFilterSma; undefined means no filter. */
+  trendRegime?: TrendRegime;
 }): AllocationCap[] {
-  const { action, symbol, cashPercent, signedAllocationPercent, constraints } = input;
+  const { action, symbol, cashPercent, signedAllocationPercent, constraints, trendRegime } = input;
 
   const maxByPosition =
     action === "SHORT"
@@ -56,6 +59,24 @@ export function openingAllocationCaps(input: {
       code: "LEVERAGE_FORBIDDEN",
       max: cashPercent,
       detail: "Spending more than cash would require leverage",
+    });
+  }
+
+  // Against the trend only the risk-reducing part survives: a BUY may still cover a
+  // short and a SHORT may still trim a long, but neither may open the other side.
+  if (action === "BUY" && trendRegime === "DOWN") {
+    caps.push({
+      code: "TREND_FILTER",
+      max: Math.max(0, -signedAllocationPercent),
+      detail: trendFilterDetail(symbol, trendRegime, constraints.trendFilterSma),
+    });
+  }
+
+  if (action === "SHORT" && trendRegime === "UP") {
+    caps.push({
+      code: "TREND_FILTER",
+      max: Math.max(0, signedAllocationPercent),
+      detail: trendFilterDetail(symbol, trendRegime, constraints.trendFilterSma),
     });
   }
 

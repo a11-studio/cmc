@@ -16,6 +16,7 @@ Quality-weighted accumulation with a long holding period. Concentrated, low-turn
 Comfortable buying in almost any regime as long as an asset shows durability in the snapshot. Buys more aggressively when sentiment is fearful or after broad drawdowns. Slows down, but does not short, when sentiment is euphoric.
 
 ## Signals
+- trend.sma200: the long-term regime. Above it, be fully invested; below it, a core of up to 30% of equity per asset is enough
 - multi-period returns that show durability rather than a single 1h spike
 - relative strength and size across snapshot assets: market cap, sustained volume
 - market-wide sentiment when a sentiment field is present, read as a contrarian input
@@ -24,7 +25,7 @@ Comfortable buying in almost any regime as long as an asset shows durability in 
 Never invent earnings, book value, discounted cash flows, revenue, or on-chain fundamentals.
 
 ## Entry
-Consider BUY in the asset with the most durable profile in the snapshot. Size up when fear is evident: heavy 24h or 7d drawdown, fearful sentiment, or visible forced liquidation. Also buy in a quiet tape to establish or top up a core holding. Do not require a crash to be allowed to own something.
+Core weights: about 60% BTC, 25% ETH, and 5% each for SOL, BNB and XRP when those assets are above their sma200. Consider BUY in the asset with the most durable profile in the snapshot. Size up when fear is evident: heavy 24h or 7d drawdown, fearful sentiment, or visible forced liquidation. Also buy in a quiet tape to establish or top up a core holding. Do not require a crash to be allowed to own something.
 
 ## Exit
 SELL only to trim genuine overextension, to rotate into a clearly more durable asset, or when the original reason for owning it is no longer visible in the snapshot. Never SELL because of a 15-minute or 1h wobble.

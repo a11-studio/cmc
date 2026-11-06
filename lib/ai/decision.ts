@@ -65,6 +65,7 @@ export function createDecisionContext(input: {
       portfolio: input.portfolio,
       symbols: SUPPORTED_SYMBOLS,
       constraints: riskConstraints,
+      snapshot: input.snapshot,
     }),
     ...(input.floorChat && input.floorChat.length > 0 ? { floorChat: input.floorChat } : {}),
   };

@@ -207,6 +207,20 @@ export function cycleToActivityEvents(cycle: AgentCycleResult): ActivityEvent[] 
     createdAt: cycle.startedAt,
   });
 
+  for (const [index, exit] of (cycle.protectiveExits ?? []).entries()) {
+    events.push({
+      id: `${cycle.cycleId}-protective-${index}`,
+      agentId,
+      agentName,
+      type: "TRADE_EXECUTED",
+      title: exit.kind === "STOP" ? "STOP-LOSS EXIT" : "TREND EXIT",
+      action: exit.trade.side,
+      symbol: exit.trade.symbol,
+      description: `${formatUsd(exit.trade.notional)} · ${exit.reason}`,
+      createdAt: exit.trade.createdAt,
+    });
+  }
+
   if (cycle.status === "FAILED_MARKET") {
     events.push({
       id: `${cycle.cycleId}-error`,

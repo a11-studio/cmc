@@ -19,20 +19,46 @@ import {
 import { ASSET_CATALOG, parseSupportedSymbols } from "@/lib/market/symbols";
 import { fetchBtcLiquidationSummary } from "@/lib/market/btc-liquidation-summary";
 import { rememberSnapshot } from "@/lib/market/quote-history";
-import type { MarketDataProvider, MarketSnapshot } from "@/lib/market/types";
+import type { DailyCandleSeries } from "@/lib/market/daily-candles";
+import { computeAssetTrend } from "@/lib/market/trend";
+import type { MarketDataProvider, MarketSnapshot, SupportedSymbol } from "@/lib/market/types";
+
+export type DailyCandleLoader = (
+  symbols: readonly SupportedSymbol[],
+  now: Date
+) => Promise<ReadonlyMap<SupportedSymbol, DailyCandleSeries>>;
 
 type CoinMarketCapProviderOptions = {
   apiKey: string;
   fetchImpl?: CmcFetch;
   now?: () => Date;
   createCycleId?: () => string;
+  /** Optional daily-candle source for assets[].trend. Trend context is skipped when absent or failing. */
+  loadDailyCandles?: DailyCandleLoader;
 };
+
+async function safeLoadCandles(
+  loader: DailyCandleLoader | undefined,
+  symbols: readonly SupportedSymbol[],
+  now: Date
+): Promise<ReadonlyMap<SupportedSymbol, DailyCandleSeries>> {
+  if (!loader) {
+    return new Map();
+  }
+
+  try {
+    return await loader(symbols, now);
+  } catch {
+    return new Map();
+  }
+}
 
 export class CoinMarketCapProvider implements MarketDataProvider {
   private readonly apiKey: string;
   private readonly fetchImpl: CmcFetch;
   private readonly now: () => Date;
   private readonly createCycleId: () => string;
+  private readonly loadDailyCandles?: DailyCandleLoader;
 
   constructor(options: CoinMarketCapProviderOptions) {
     const apiKey = options.apiKey.trim();
@@ -45,15 +71,17 @@ export class CoinMarketCapProvider implements MarketDataProvider {
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.now = options.now ?? (() => new Date());
     this.createCycleId = options.createCycleId ?? randomUUID;
+    this.loadDailyCandles = options.loadDailyCandles;
   }
 
   async getMarketSnapshot(symbols: string[]): Promise<MarketSnapshot> {
     const supported = parseSupportedSymbols(symbols);
     const ids = supported.map((symbol) => String(ASSET_CATALOG[symbol].cmcId)).join(",");
-    const timestamp = this.now().toISOString();
+    const nowDate = this.now();
+    const timestamp = nowDate.toISOString();
     const cycleId = this.createCycleId();
 
-    const [quotesPayload, globalPayload, fearGreedPayload, derivativesPayload, liquidationsPayload, btcLiquidation] =
+    const [quotesPayload, globalPayload, fearGreedPayload, derivativesPayload, liquidationsPayload, btcLiquidation, dailyCandles] =
       await Promise.all([
       cmcGetJson({
         apiKey: this.apiKey,
@@ -91,6 +119,7 @@ export class CoinMarketCapProvider implements MarketDataProvider {
         required: false,
       }),
       fetchBtcLiquidationSummary({ apiKey: this.apiKey, fetchImpl: this.fetchImpl }),
+      safeLoadCandles(this.loadDailyCandles, supported, nowDate),
     ]);
 
     const snapshot = normalizeQuotesResponse(quotesPayload, supported, {
@@ -99,8 +128,17 @@ export class CoinMarketCapProvider implements MarketDataProvider {
     });
     const derivatives = normalizeDerivativesExchanges(derivativesPayload);
 
+    const assets = snapshot.assets.map((asset) => {
+      const series = dailyCandles.get(asset.symbol as SupportedSymbol);
+      const trend = series
+        ? computeAssetTrend({ candles: series.candles, price: asset.price, source: series.source, now: nowDate })
+        : undefined;
+      return trend ? { ...asset, trend } : asset;
+    });
+
     const next = {
       ...snapshot,
+      assets,
       market: {
         ...(globalPayload ? normalizeGlobalMetrics(globalPayload) : {}),
         ...normalizeFearGreed(fearGreedPayload),

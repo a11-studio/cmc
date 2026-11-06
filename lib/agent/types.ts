@@ -4,6 +4,7 @@ import type {
   PaperAccount,
   PaperExecution,
   PaperValuation,
+  Trade,
   TradeDecision,
 } from "@/lib/paper/types";
 import type { AgentRiskStatus, RiskInput, RiskResult } from "@/lib/risk/types";
@@ -33,6 +34,7 @@ export type AgentCycleEventType =
   | "ANALYZING"
   | "DECISION"
   | "RISK_CHECK"
+  | "PROTECTIVE_EXIT"
   | "TRADE_EXECUTED"
   | "TRADE_BLOCKED"
   | "CYCLE_COMPLETED"
@@ -84,7 +86,15 @@ export type AgentCycleResult = {
   startedAt: string;
   completedAt: string;
   failure?: AgentCycleFailure;
+  /** Risk-engine exits (stop or trend) filled before the agent decided this cycle. */
+  protectiveExits?: ProtectiveExitFill[];
   trace: AgentCycleTrace;
+};
+
+export type ProtectiveExitFill = {
+  kind: "STOP" | "TREND";
+  reason: string;
+  trade: Trade;
 };
 
 export type AgentCycleStore = {
