@@ -5,7 +5,8 @@ export type MarketDataErrorCode =
   | "CMC_UNAUTHORIZED"
   | "CMC_RATE_LIMIT"
   | "MALFORMED_RESPONSE"
-  | "MISSING_ASSETS";
+  | "MISSING_ASSETS"
+  | "STALE_QUOTES";
 
 export class MarketDataError extends Error {
   readonly code: MarketDataErrorCode;

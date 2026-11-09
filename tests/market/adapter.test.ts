@@ -128,6 +128,7 @@ describe("CoinMarketCapProvider", () => {
     const snapshot = await new CoinMarketCapProvider({
       apiKey: "test-secret-key",
       fetchImpl,
+      now: () => new Date("2026-09-17T08:01:00.000Z"),
     }).getMarketSnapshot(["BTC", "ETH", "SOL", "BNB", "XRP"]);
 
     expect(snapshot.market).toMatchObject({
@@ -140,6 +141,45 @@ describe("CoinMarketCapProvider", () => {
       longLiquidations24h: 8,
       shortLiquidations24h: 4,
     });
+  });
+
+  it("refetches quotes past the cache when the cached ones are stale", async () => {
+    // The cached fetch once returned 18-day-old quotes and protective stops fired on them.
+    const fresh = JSON.parse(JSON.stringify(v3QuotesFixture).replaceAll("2026-09-17T08:00:00.000Z", "2026-10-05T11:59:00.000Z"));
+    const quoteInits: (RequestInit | undefined)[] = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes(CMC_QUOTES_PATH)) {
+        quoteInits.push(init);
+        return jsonResponse(init?.cache === "no-store" ? fresh : v3QuotesFixture);
+      }
+
+      return jsonResponse({ status: { error_code: 0 }, data: {} });
+    });
+
+    const snapshot = await new CoinMarketCapProvider({
+      apiKey: "test-secret-key",
+      fetchImpl,
+      now: () => new Date("2026-10-05T12:00:00.000Z"),
+    }).getMarketSnapshot(["BTC", "ETH", "SOL", "BNB", "XRP"]);
+
+    expect(snapshot.timestamp).toBe("2026-10-05T11:59:00.000Z");
+    expect(quoteInits).toHaveLength(2);
+    expect(quoteInits[0]).toMatchObject({ next: { revalidate: 60 } });
+    expect(quoteInits[1]).toMatchObject({ cache: "no-store" });
+  });
+
+  it("refuses quotes that are still stale without the cache", async () => {
+    const fetchImpl = vi.fn(async (url: string) =>
+      url.includes(CMC_QUOTES_PATH) ? jsonResponse(v3QuotesFixture) : jsonResponse({ status: { error_code: 0 }, data: {} })
+    );
+
+    await expect(
+      new CoinMarketCapProvider({
+        apiKey: "test-secret-key",
+        fetchImpl,
+        now: () => new Date("2026-10-05T12:00:00.000Z"),
+      }).getMarketSnapshot(["BTC", "ETH", "SOL", "BNB", "XRP"])
+    ).rejects.toMatchObject({ code: "STALE_QUOTES" });
   });
 
   it("does not call CMC for unsupported symbols", async () => {

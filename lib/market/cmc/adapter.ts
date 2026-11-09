@@ -37,6 +37,18 @@ type CoinMarketCapProviderOptions = {
   loadDailyCandles?: DailyCandleLoader;
 };
 
+/**
+ * Oldest CoinMarketCap quote an agent may trade on. CMC refreshes quotes every
+ * minute; the cached fetch normally lags a minute or two. On 9 Nov 2026 the cache
+ * served Elon quotes from 22 Oct, and protective stops fired on those prices.
+ */
+export const MAX_QUOTE_AGE_MS = 10 * 60 * 1000;
+
+function quoteAgeMs(timestamp: string, now: Date): number {
+  const at = Date.parse(timestamp);
+  return Number.isFinite(at) ? now.getTime() - at : Number.POSITIVE_INFINITY;
+}
+
 async function safeLoadCandles(
   loader: DailyCandleLoader | undefined,
   symbols: readonly SupportedSymbol[],
@@ -122,10 +134,30 @@ export class CoinMarketCapProvider implements MarketDataProvider {
       safeLoadCandles(this.loadDailyCandles, supported, nowDate),
     ]);
 
-    const snapshot = normalizeQuotesResponse(quotesPayload, supported, {
+    let snapshot = normalizeQuotesResponse(quotesPayload, supported, {
       cycleId,
       timestamp,
     });
+
+    if (quoteAgeMs(snapshot.timestamp, nowDate) > MAX_QUOTE_AGE_MS) {
+      const freshPayload = await cmcGetJson({
+        apiKey: this.apiKey,
+        path: CMC_QUOTES_PATH,
+        params: { id: ids, convert: "USD" },
+        fetchImpl: this.fetchImpl,
+        required: true,
+        fresh: true,
+      });
+      snapshot = normalizeQuotesResponse(freshPayload, supported, { cycleId, timestamp });
+      const age = quoteAgeMs(snapshot.timestamp, nowDate);
+
+      if (age > MAX_QUOTE_AGE_MS) {
+        throw new MarketDataError(
+          `CoinMarketCap quotes are stale (last updated ${snapshot.timestamp}); refusing to trade on them`,
+          "STALE_QUOTES"
+        );
+      }
+    }
     const derivatives = normalizeDerivativesExchanges(derivativesPayload);
 
     const assets = snapshot.assets.map((asset) => {

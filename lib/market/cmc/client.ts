@@ -20,6 +20,11 @@ type CmcGetOptions = {
   params: Record<string, string>;
   fetchImpl: CmcFetch;
   required: boolean;
+  /**
+   * Skip the Next.js Data Cache. Cached responses are stale-while-revalidate, so a
+   * key nobody requested for days can come back with weeks-old quotes once.
+   */
+  fresh?: boolean;
 };
 
 function buildUrl(path: string, params: Record<string, string>): string {
@@ -53,6 +58,7 @@ export async function cmcGetJson({
   params,
   fetchImpl,
   required,
+  fresh = false,
 }: CmcGetOptions): Promise<unknown | null> {
   const url = buildUrl(path, params);
 
@@ -66,7 +72,7 @@ export async function cmcGetJson({
         "X-CMC_PRO_API_KEY": apiKey,
       },
       signal: AbortSignal.timeout(CMC_TIMEOUT_MS),
-      next: { revalidate: CMC_REVALIDATE_SECONDS },
+      ...(fresh ? { cache: "no-store" } : { next: { revalidate: CMC_REVALIDATE_SECONDS } }),
     } as RequestInit);
   } catch (cause) {
     if (!required) {
