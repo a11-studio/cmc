@@ -2,19 +2,10 @@ import type { TradeCheck } from "@/lib/agent/trade-outcomes";
 
 export type TradeCheckTone = "win" | "loss" | "pending" | "hold" | "blocked";
 
-export type TradeCheckGroup = {
-  date: string;
-  label: string;
-  checks: TradeCheck[];
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-export function localDateKey(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
+export const HOURLY_GRID_DAYS = 7;
 
 export function tradeCheckTone(check: Pick<TradeCheck, "kind" | "win">): TradeCheckTone {
   if (check.kind === "hold") {
@@ -48,114 +39,82 @@ export function sortTradeChecks(checks: readonly TradeCheck[]): TradeCheck[] {
   return [...checks].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
 }
 
-export type TradeCheckDayCell = {
+export type HourlyCheckRow = {
+  /** UTC day, YYYY-MM-DD. */
   date: string;
-  checks: TradeCheck[];
+  /** e.g. "Mon 9". */
+  label: string;
+  /** 24 slots, 00:00–23:00 UTC; null when the agent had no cycle that hour. */
+  hours: Array<TradeCheck | null>;
 };
 
-export type TradeCheckWeekColumn = {
-  weekStart: string;
-  days: TradeCheckDayCell[];
+export type TradeCheckSummary = {
+  trades: number;
+  confirmed: number;
+  against: number;
+  pending: number;
+  held: number;
+  blocked: number;
+  /** Confirmed share of scored trades, null before the first scored trade. */
+  hitRatePercent: number | null;
 };
 
-export type TradeCheckContributionGrid = {
-  columns: TradeCheckWeekColumn[];
-  monthLabels: Array<{ columnIndex: number; label: string }>;
-};
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-function startOfWeekSunday(date: Date): Date {
-  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  copy.setDate(copy.getDate() - copy.getDay());
-  return copy;
+function rowLabel(day: Date): string {
+  return `${WEEKDAYS[day.getUTCDay()]} ${day.getUTCDate()}`;
 }
 
-function addDays(date: Date, days: number): Date {
-  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  copy.setDate(copy.getDate() + days);
-  return copy;
-}
-
-function dateFromKey(key: string): Date {
-  const [year, month, day] = key.split("-").map((part) => Number.parseInt(part, 10));
-  return new Date(year, month - 1, day);
-}
-
-/** GitHub-style grid: week columns × Sun–Sat rows, multiple checks stack inside a day cell. */
-export function buildTradeCheckContributionGrid(
-  checks: readonly TradeCheck[]
-): TradeCheckContributionGrid {
-  const sorted = sortTradeChecks(checks);
-
-  if (sorted.length === 0) {
-    return { columns: [], monthLabels: [] };
-  }
-
-  const checksByDay = new Map<string, TradeCheck[]>();
-
-  for (const check of sorted) {
-    const key = localDateKey(new Date(check.createdAt));
-    const list = checksByDay.get(key) ?? [];
-    list.push(check);
-    checksByDay.set(key, list);
-  }
-
-  const dayKeys = [...checksByDay.keys()].sort();
-  const rangeStart = startOfWeekSunday(dateFromKey(dayKeys[0]!));
-  const rangeEnd = startOfWeekSunday(dateFromKey(dayKeys.at(-1)!));
-
-  const columns: TradeCheckWeekColumn[] = [];
-  const monthLabels: Array<{ columnIndex: number; label: string }> = [];
-  let cursor = rangeStart;
-  let columnIndex = 0;
-
-  while (cursor.getTime() <= rangeEnd.getTime()) {
-    const weekStartKey = localDateKey(cursor);
-    const days: TradeCheckDayCell[] = [];
-
-    for (let offset = 0; offset < 7; offset += 1) {
-      const day = addDays(cursor, offset);
-      const date = localDateKey(day);
-      const dayChecks = checksByDay.get(date) ?? [];
-
-      days.push({ date, checks: dayChecks });
-
-      if (day.getDate() === 1) {
-        const label = new Intl.DateTimeFormat("en-US", { month: "short" }).format(day);
-
-        if (!monthLabels.some((entry) => entry.columnIndex === columnIndex && entry.label === label)) {
-          monthLabels.push({ columnIndex, label });
-        }
-      }
-    }
-
-    columns.push({ weekStart: weekStartKey, days });
-    cursor = addDays(cursor, 7);
-    columnIndex += 1;
-  }
-
-  return { columns, monthLabels };
-}
-
-export function groupTradeChecksByDay(checks: readonly TradeCheck[]): TradeCheckGroup[] {
-  const groups: TradeCheckGroup[] = [];
+/**
+ * Day rows × 24 UTC hour columns, one square per hourly cycle, covering the last
+ * `days` days that end on the day of the newest check. UTC keeps the server and
+ * client render identical.
+ */
+export function buildHourlyCheckGrid(checks: readonly TradeCheck[], days = HOURLY_GRID_DAYS): HourlyCheckRow[] {
+  const byHour = new Map<number, TradeCheck>();
 
   for (const check of sortTradeChecks(checks)) {
-    const date = localDateKey(new Date(check.createdAt));
-    const current = groups.at(-1);
+    const hour = Date.parse(check.hourStart);
 
-    if (!current || current.date !== date) {
-      groups.push({
-        date,
-        label: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
-          new Date(check.createdAt)
-        ),
-        checks: [check],
-      });
-      continue;
+    if (Number.isFinite(hour)) {
+      byHour.set(hour, check);
     }
-
-    current.checks.push(check);
   }
 
-  return groups;
+  if (byHour.size === 0) {
+    return [];
+  }
+
+  const hours = [...byHour.keys()];
+  const lastDay = Math.floor(Math.max(...hours) / DAY_MS) * DAY_MS;
+  const firstDay = Math.max(Math.floor(Math.min(...hours) / DAY_MS) * DAY_MS, lastDay - (days - 1) * DAY_MS);
+  const rows: HourlyCheckRow[] = [];
+
+  for (let day = firstDay; day <= lastDay; day += DAY_MS) {
+    rows.push({
+      date: new Date(day).toISOString().slice(0, 10),
+      label: rowLabel(new Date(day)),
+      hours: Array.from({ length: 24 }, (_, hour) => byHour.get(day + hour * HOUR_MS) ?? null),
+    });
+  }
+
+  return rows;
+}
+
+export function summarizeTradeChecks(checks: readonly TradeCheck[]): TradeCheckSummary {
+  const count = (tone: TradeCheckTone) => checks.filter((check) => tradeCheckTone(check) === tone).length;
+  const confirmed = count("win");
+  const against = count("loss");
+  const pending = count("pending");
+  const scored = confirmed + against;
+
+  return {
+    trades: confirmed + against + pending,
+    confirmed,
+    against,
+    pending,
+    held: count("hold"),
+    blocked: count("blocked"),
+    hitRatePercent: scored > 0 ? (confirmed / scored) * 100 : null,
+  };
 }

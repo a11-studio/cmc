@@ -2,38 +2,25 @@ import "server-only";
 
 import { reviveCycle } from "@/lib/agent/persist";
 import type { AgentCycleResult } from "@/lib/agent/types";
-import type { Trade } from "@/lib/paper/types";
+import { ARENA_SEASON_START } from "@/lib/agent/season";
+import { HOURLY_GRID_DAYS } from "@/lib/charts/trade-heatmap";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+const HOURLY_GRID_WINDOW_MS = HOURLY_GRID_DAYS * 24 * 60 * 60 * 1000;
+
 /**
- * Trade-check scoring needs the full hourly chain since the first fill, not just
- * the last HYDRATE_CYCLE_LIMIT dashboard cycles. Slim payloads still carry
+ * Cycles behind the hourly Trade checks grid: every cycle of the current season in
+ * the last HOURLY_GRID_DAYS days (plus a day of margin), not just the last
+ * HYDRATE_CYCLE_LIMIT dashboard cycles. Slim payloads still carry
  * marketCheckAssets + decisions for this path.
  */
 export async function loadTradeCheckCycles(
   client: SupabaseClient,
   agentId: string,
-  trades: readonly Trade[]
+  now = new Date()
 ): Promise<AgentCycleResult[]> {
-  if (trades.length === 0) {
-    return [];
-  }
-
-  let earliest = Number.POSITIVE_INFINITY;
-
-  for (const trade of trades) {
-    const at = Date.parse(trade.createdAt);
-
-    if (Number.isFinite(at)) {
-      earliest = Math.min(earliest, at);
-    }
-  }
-
-  if (!Number.isFinite(earliest)) {
-    return [];
-  }
-
-  const since = new Date(earliest).toISOString();
+  const windowStart = now.getTime() - HOURLY_GRID_WINDOW_MS - 24 * 60 * 60 * 1000;
+  const since = new Date(Math.max(windowStart, Date.parse(ARENA_SEASON_START))).toISOString();
 
   const { data, error } = await client
     .from("agent_cycles")

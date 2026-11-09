@@ -78,7 +78,7 @@ export const getLiveAgentView = cache(async (agentId: string): Promise<MomentumA
 
     if (client) {
       try {
-        tradeCheckCycles = await loadTradeCheckCycles(client, agentId, store.getAccount().trades);
+        tradeCheckCycles = await loadTradeCheckCycles(client, agentId);
       } catch (error) {
         console.error(`Trade check cycle load failed for ${agentId}`, error);
       }
